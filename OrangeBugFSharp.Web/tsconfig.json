@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "noEmitOnError": true,
+    "sourceMap": false,
+    "target": "es2016",
+    "moduleResolution": "node",
+    "outDir": "wwwroot/js",
+    "module": "amd"
+  },
+  "include": [
+    "**/*.ts"
+  ],
+  "compileOnSave": true
+}
