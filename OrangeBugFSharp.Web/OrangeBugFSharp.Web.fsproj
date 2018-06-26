@@ -27,7 +27,6 @@
 
   <ItemGroup>
     <Folder Include="Pages\" />
-    <Folder Include="Scripts\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,6 +34,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <TypeScriptCompile Include="Scripts\CommonTypes.ts" />
+    <TypeScriptCompile Include="Scripts\GameScene.ts" />
     <TypeScriptCompile Include="Scripts\GameClient.ts" />
   </ItemGroup>
 

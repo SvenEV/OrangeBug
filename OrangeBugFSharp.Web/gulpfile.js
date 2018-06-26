@@ -11,7 +11,8 @@ var paths = {
     scripts: ['scripts/**/*.js', 'scripts/**/*.ts', 'scripts/**/*.map'],
     libs: [
         'node_modules/@aspnet/signalr/dist/browser/signalr.js',
-        'node_modules/requirejs/require.js'
+        'node_modules/requirejs/require.js',
+        'node_modules/three/build/three.js'
     ]
 };
 

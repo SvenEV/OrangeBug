@@ -11,7 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "@aspnet/signalr": "^1.0.0",
-    "requirejs": "2.3.5"
+    "requirejs": "2.3.5",
+    "@types/three": "0.92.8"
   },
   "devDependencies": {
     "gulp": "4.0.0",
