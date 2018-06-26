@@ -1,5 +1,5 @@
 ﻿import * as Three from "three"
-import { Camera, Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, MeshBasicMaterial, Mesh, TextureLoader, Texture, Audio, AudioLoader, PlaneGeometry, MeshStandardMaterial, DirectionalLight, WebGLShadowMap, ShadowMapType, PCFSoftShadowMap, DirectionalLightHelper, AmbientLight, Object3D, Geometry, Material, AudioListener, AudioBuffer, CylinderGeometry } from "three"
+import { Camera, Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, MeshBasicMaterial, Mesh, TextureLoader, Texture, Audio, AudioLoader, PlaneGeometry, MeshStandardMaterial, DirectionalLight, WebGLShadowMap, ShadowMapType, PCFSoftShadowMap, DirectionalLightHelper, AmbientLight, Object3D, Geometry, Material, AudioListener, AudioBuffer, CylinderGeometry, OrthographicCamera } from "three"
 import { Tile, Entity, Effect, Point, Direction, GameMap } from "./CommonTypes"
 
 class GameAssets {
@@ -45,9 +45,8 @@ class MeshFactory {
     private static meshGenerators: { [key: string]: (() => Mesh) } = {}
 
     static initialize() {
+        this.geometries.Plane = new PlaneGeometry(1, 1)
         this.geometries.Cube = new BoxGeometry(1, 1, 1)
-        this.geometries.CubeSmall = new BoxGeometry(.8, .8, .8)
-        this.geometries.Cylinder = new BoxGeometry(.8, .8, .2)
 
         this.materials.Default = new MeshStandardMaterial({ color: 0xff00ff });
         this.materials.Path = new MeshStandardMaterial({ map: GameAssets.sprites["Path"] });
@@ -55,11 +54,11 @@ class MeshFactory {
         this.materials.Box = new MeshStandardMaterial({ map: GameAssets.sprites["Box"], transparent: true });
         this.materials.PlayerRight = new MeshStandardMaterial({ map: GameAssets.sprites["PlayerRight"], transparent: true });
 
-        this.meshGenerators.Default = () => new Mesh(this.geometries.Cube, this.materials.Default)
-        this.meshGenerators.PathTile = () => new Mesh(this.geometries.Cube, this.materials.Path)
-        this.meshGenerators.WallTile = () => new Mesh(this.geometries.Cube, this.materials.Wall)
-        this.meshGenerators.BoxEntity = () => new Mesh(this.geometries.CubeSmall, this.materials.Box)
-        this.meshGenerators.PlayerEntity = () => new Mesh(this.geometries.Cylinder, this.materials.PlayerRight)
+        this.meshGenerators.Default = () => new Mesh(this.geometries.Plane, this.materials.Default)
+        this.meshGenerators.PathTile = () => new Mesh(this.geometries.Plane, this.materials.Path)
+        this.meshGenerators.WallTile = () => new Mesh(this.geometries.Plane, this.materials.Wall)
+        this.meshGenerators.BoxEntity = () => new Mesh(this.geometries.Plane, this.materials.Box)
+        this.meshGenerators.PlayerEntity = () => new Mesh(this.geometries.Plane, this.materials.PlayerRight)
     }
 
     static getMesh(tileOrEntity: Tile | Entity): Mesh {
@@ -161,7 +160,7 @@ export class GameScene {
     readonly map: GameMap
     readonly mapSceneInfo: GameMapSceneInfo
     readonly scene = new Scene()
-    readonly camera = new PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000)
+    readonly camera: OrthographicCamera
     readonly renderer = new WebGLRenderer()
 
     constructor(map: GameMap) {
@@ -172,14 +171,14 @@ export class GameScene {
         MeshFactory.initialize()
         
         // init renderer
-        this.renderer.setSize(window.innerWidth, window.innerHeight)
         this.renderer.setPixelRatio(window.devicePixelRatio)
         this.renderer.shadowMap.enabled = true
         this.renderer.shadowMap.type = PCFSoftShadowMap // default THREE.PCFShadowMap
         document.body.appendChild(this.renderer.domElement)
 
         // init camera
-        this.camera.position.set(map.size.x / 2, map.size.y / 2, 12)
+        this.camera = new OrthographicCamera(0, 0, 0, 0)
+        this.camera.position.set(map.size.x / 2 - .5, map.size.y / 2 - .5, 12)
         this.camera.add(audioListener)
 
         // init lights
@@ -197,12 +196,32 @@ export class GameScene {
         this.mapSceneInfo.tiles.forEach(t => this.scene.add(t));
         this.mapSceneInfo.entities.forEach(e => this.scene.add(e.value));
 
+        this.adjustForWindowSize()
         this.runGameLoop()
     }
 
     private runGameLoop() {
         this.renderer.render(this.scene, this.camera)
         requestAnimationFrame(() => this.runGameLoop())
+    }
+
+    adjustForWindowSize() {
+        this.renderer.setSize(window.innerWidth, window.innerHeight)
+        let aspectRatio = window.innerWidth / window.innerHeight
+        let mapAspectRatio = this.map.size.x / this.map.size.y
+
+        if (mapAspectRatio > aspectRatio) {
+            this.camera.left = -this.map.size.x / 2;
+            this.camera.right = this.map.size.x / 2;
+            this.camera.bottom = this.camera.left / aspectRatio
+            this.camera.top = this.camera.right / aspectRatio
+        } else {
+            this.camera.bottom = -this.map.size.y / 2;
+            this.camera.top = this.map.size.y / 2;
+            this.camera.left = this.camera.bottom * aspectRatio
+            this.camera.right = this.camera.top * aspectRatio
+        }
+        this.camera.updateProjectionMatrix()
     }
 
     handleEffects(effects: Effect[]) {

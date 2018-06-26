@@ -6,13 +6,10 @@ import { GameMap, Direction } from "./CommonTypes";
 class GameClient {
 
     private readonly connection: SignalR.HubConnection    
-    private readonly canvas: HTMLCanvasElement       
 
     private scene: GameScene
 
-    constructor(canvas: HTMLCanvasElement) {
-        this.canvas = canvas
-
+    constructor() {
         this.connection = new SignalR.HubConnectionBuilder()
             .withUrl("/game")
             .build()
@@ -25,6 +22,7 @@ class GameClient {
 
         this.connection.on("ReceiveInitialMap", (initialMap: GameMap) => {
             this.scene = new GameScene(initialMap)
+            window.onresize = () => this.scene.adjustForWindowSize()
         })
 
         this.connection.on("ReceiveEffects", (effects: any[]) => {
@@ -80,4 +78,4 @@ class GameClient {
     }
 }
 
-(window as any).OrangeBug = new GameClient(document.getElementById("gameCanvas") as HTMLCanvasElement)
+(window as any).OrangeBug = new GameClient()
