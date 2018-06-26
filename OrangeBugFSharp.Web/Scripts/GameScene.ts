@@ -1,75 +1,98 @@
 ﻿import * as Three from "three"
-import { Camera, Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, MeshBasicMaterial, Mesh, TextureLoader, Texture, Audio, AudioLoader, PlaneGeometry, MeshStandardMaterial, DirectionalLight, WebGLShadowMap, ShadowMapType, PCFSoftShadowMap, DirectionalLightHelper, AmbientLight, Object3D, Geometry, Material, AudioListener, AudioBuffer, CylinderGeometry, OrthographicCamera } from "three"
+import { Camera, Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, MeshBasicMaterial, Mesh, TextureLoader, Texture, Audio, AudioLoader, PlaneGeometry, MeshStandardMaterial, DirectionalLight, WebGLShadowMap, ShadowMapType, PCFSoftShadowMap, DirectionalLightHelper, AmbientLight, Object3D, Geometry, Material, AudioListener, AudioBuffer, CylinderGeometry, OrthographicCamera, Euler } from "three"
 import { Tile, Entity, Effect, Point, Direction, GameMap } from "./CommonTypes"
 
 class GameAssets {
 
     private static readonly textureLoader = new TextureLoader()
     private static readonly audioLoader = new AudioLoader()
-
-    static readonly sprites: { [key: string]: Texture } = {
-        "PlayerRight": null,
-        "Path": null,
-        "Wall": null,
-        "Box": null,
-        "NoSprite": null,
-        "Button": null,
-        "DummyWall": null,
-    }
-
-    static readonly sounds: { [key: string]: Audio } = {
-        "click": null,
-        "boxscrape": null
-    }
+    private static readonly loadedSprites: { [key: string]: Texture } = {}
+    private static readonly loadedSounds: { [key: string]: Audio } = {}
+    private static audioListener: AudioListener
 
     static initialize(audioListener: AudioListener) {
-        for (let key in this.sprites) {
-            let texture = this.textureLoader.load("images/sprites/" + key + ".png")
-            this.sprites[key] = texture
-        }
+        this.audioListener = audioListener
+    }
 
-        for (let key in this.sounds) {
+    static getSprite(key: string) {
+        let sprite = this.loadedSprites[key]
+
+        if (sprite)
+            return sprite
+
+        let texture = this.textureLoader.load("images/sprites/" + key + ".png")
+        this.loadedSprites[key] = texture
+        return texture
+    }
+
+    static getSoundAsync(key: string): Promise<Audio> {
+        return new Promise((resolve, reject) => {
+            let sound = this.loadedSounds[key]
+
+            if (sound)
+                resolve(sound)
+
             this.audioLoader.load("sounds/" + key + ".mp3", (buffer: AudioBuffer) => {
-                let audio = new Audio(audioListener)
+                let audio = new Audio(this.audioListener)
                 audio.setBuffer(buffer)
-                this.sounds[key] = audio;
+                this.loadedSounds[key] = audio;
+                resolve(audio)
             }, null, null)
-        }
+        })
     }
 }
 
 class MeshFactory {
 
-    private static geometries: { [key: string]: Geometry } = {}
-    private static materials: { [key: string]: Material } = {}
-    private static meshGenerators: { [key: string]: (() => Mesh) } = {}
+    private static readonly geometries: { [key: string]: Geometry } = {}
+    private static readonly materials: { [key: string]: Material } = {}
+    private static readonly meshGenerators: { [key: string]: (() => Mesh) } = {}
 
     static initialize() {
         this.geometries.Plane = new PlaneGeometry(1, 1)
         this.geometries.Cube = new BoxGeometry(1, 1, 1)
 
         this.materials.Default = new MeshStandardMaterial({ color: 0xff00ff });
-        this.materials.Path = new MeshStandardMaterial({ map: GameAssets.sprites["Path"] });
-        this.materials.Wall = new MeshStandardMaterial({ map: GameAssets.sprites["Wall"] });
-        this.materials.Box = new MeshStandardMaterial({ map: GameAssets.sprites["Box"], transparent: true });
-        this.materials.PlayerRight = new MeshStandardMaterial({ map: GameAssets.sprites["PlayerRight"], transparent: true });
+        
+        this.meshGenerators.Default = () => new Mesh(this.geometries.Plane, this.getMaterial("NoSprite"))
+        this.meshGenerators.PathTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Path"))
+        this.meshGenerators.WallTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Wall"))
+        this.meshGenerators.ButtonTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Button"))
+        this.meshGenerators.GateTile = () => new Mesh(this.geometries.Plane, this.getMaterial("DummyWall"))
+        this.meshGenerators.BoxEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("Box"))
+        this.meshGenerators.PlayerEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("PlayerRight"))
+    }
 
-        this.meshGenerators.Default = () => new Mesh(this.geometries.Plane, this.materials.Default)
-        this.meshGenerators.PathTile = () => new Mesh(this.geometries.Plane, this.materials.Path)
-        this.meshGenerators.WallTile = () => new Mesh(this.geometries.Plane, this.materials.Wall)
-        this.meshGenerators.BoxEntity = () => new Mesh(this.geometries.Plane, this.materials.Box)
-        this.meshGenerators.PlayerEntity = () => new Mesh(this.geometries.Plane, this.materials.PlayerRight)
+    private static getMaterial(spriteKey: string) {
+        let material = this.materials[spriteKey]
+
+        if (material)
+            return material
+
+        material = new MeshStandardMaterial({ map: GameAssets.getSprite(spriteKey), transparent: true });
+        this.materials[spriteKey] = material
+        return material
     }
 
     static getMesh(tileOrEntity: Tile | Entity): Mesh {
-        let meshGenerator = this.meshGenerators[tileOrEntity.$type]
-        if (!meshGenerator)
-            meshGenerator = this.meshGenerators.Default
+        switch (tileOrEntity.$type) {
+            // special cases first (mesh depending on tile/entity state)
+            case "GateTile":
+                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.state.isOpen
+                    ? "DummyWallRemoved"
+                    : "DummyWall"))
 
-        let mesh = meshGenerator()
-        mesh.castShadow = true
-        mesh.receiveShadow = true
-        return mesh;
+            // simple cases (mesh only depending on tile/entity type)
+            default:
+                let meshGenerator = this.meshGenerators[tileOrEntity.$type]
+                if (!meshGenerator)
+                    meshGenerator = this.meshGenerators.Default
+
+                let mesh = meshGenerator()
+                mesh.castShadow = true
+                mesh.receiveShadow = true
+                return mesh;
+        }
     }
 }
 
@@ -108,6 +131,15 @@ class EntityVisual extends Object3D {
         this.remove(this.children[0])
         this.add(MeshFactory.getMesh(value))
         this._entity = value
+
+        if (value.$type === "PlayerEntity") {
+            switch (value.state.orientation) {
+                case "North": this.setRotationFromEuler(new Euler(0, 0, 0)); break
+                case "East": this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break
+                case "South": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break
+                case "West": this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break
+            }
+        }
     }
 
     get mapPosition() {
@@ -225,7 +257,7 @@ export class GameScene {
     }
 
     handleEffects(effects: Effect[]) {
-        effects.forEach(effect => {
+        effects.forEach(async effect => {
             switch (effect["$type"]) {
                 case "TileUpdateEffect":
                     let tileVisual = this.mapSceneInfo.getTileAt(effect.props.position)
@@ -244,8 +276,9 @@ export class GameScene {
                     break
 
                 case "SoundEffect":
-                    let sound = GameAssets.sounds["click"]
-                    sound.play()
+                    let sound = await GameAssets.getSoundAsync("click")
+                    if (sound)
+                        sound.play()
                     break
             }
         }) 
