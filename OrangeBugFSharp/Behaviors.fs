@@ -3,82 +3,102 @@
 module Behaviors =
     open IntentsEvents
     open TilesEntities
+    
+    // Infrastructure
 
-
-    type TileInfo = {
-        tile: Tile
-        entity: Entity option
-        position: Point
-    }
-
-    type MapAccessor = {
-        getAt: Point -> TileInfo
-        getPlayerPosition: string -> Point
-        getPlayer: string -> Point * PlayerEntity
-
-        handleIntent: MapAccessor -> Intent -> IntentResult
-    }
-
-    type TryAttachEntityArgs = {
-        tileInfo: TileInfo
-        entityToAttach: Entity
-        map: MapAccessor
-    }
-
-    type TryDetachEntityArgs = {
-        tileInfo: TileInfo
-        map: MapAccessor
-    }
-
-    type TryClearTileArgs = {
-        tileInfo: TileInfo
-        suggestedPushDirection: Direction option
-        map: MapAccessor
-    }
+    type MapDependency =
+        | RelativeMapDependency of offset: Point
+        | AbsoluteMapDependency of position: Point
 
     type TileBehavior = {
-        tryAttachEntity: TryAttachEntityArgs -> IntentResult
-        tryDetachEntity: TryDetachEntityArgs -> IntentResult
+        tryAttachEntity: IntentContext -> AttachEntityToTileIntent -> IntentContext
+        tryDetachEntity: IntentContext -> DetachEntityFromTileIntent -> IntentContext
+        update: IntentContext -> UpdateAfterDependencyChangedIntent -> IntentContext
+        getDependencies: Tile -> MapDependency list
     }
 
     type EntityBehavior = {
-        tryClearTile: TryClearTileArgs -> IntentResult
+        tryClearTile: IntentContext -> ClearEntityFromTileIntent -> IntentContext
     }
     
+    let justAccept (context: IntentContext) _ = context.accept []
+    let justReject (context: IntentContext) _ = context.reject []
+    let zeroDependencies _ = []
     
+
     // Tile behaviors
+
     let WallTileBehavior = {
-        tryAttachEntity = fun _ -> IntentRejected []
-        tryDetachEntity = fun _ -> IntentRejected []
+        tryAttachEntity = justReject
+        tryDetachEntity = justReject
+        update = justAccept
+        getDependencies = zeroDependencies
     }
 
     let PathTileBehavior = {
-        tryAttachEntity = fun _ -> IntentAccepted []
-        tryDetachEntity = fun _ -> IntentAccepted []
+        tryAttachEntity = justAccept
+        tryDetachEntity = justAccept
+        update = justAccept
+        getDependencies = zeroDependencies
+    }
+
+    let ButtonTileBehavior = {
+        tryAttachEntity = fun map args -> map.accept [ ButtonPressedEvent { position = args.position } ]
+        tryDetachEntity = fun map args -> map.accept [ ButtonReleasedEvent { position = args.position } ]
+        update = justAccept
+        getDependencies = zeroDependencies
     }
 
     let GateTileBehavior = {
-        tryAttachEntity = fun args ->
-            let (GateTile gate) = args.tileInfo.tile
+        tryAttachEntity = fun context intent ->
+            let (GateTile gate) = (context.map.getAt intent.position).tile
             match gate.isOpen with
-            | true -> PathTileBehavior.tryAttachEntity args
-            | false -> WallTileBehavior.tryAttachEntity args
+            | true -> PathTileBehavior.tryAttachEntity context intent
+            | false -> WallTileBehavior.tryAttachEntity context intent
 
-        tryDetachEntity = fun _ -> IntentAccepted []
+        tryDetachEntity = fun context intent ->
+            // If gate still open but button not pressed, close gate
+            let tileInfo = (context.map.getAt intent.position)
+            let (GateTile gate) = tileInfo.tile
+            let gateState = gate.isOpen
+            let (ButtonTile buttonState) = (context.map.getAt gate.triggerPosition).tile
+            context.accept
+                (match gateState, buttonState with
+                | true, false -> [ GateClosedEvent { position = tileInfo.position } ]
+                | _ -> [])
+
+        update = fun context intent ->
+            let tileInfo = (context.map.getAt intent.position)
+            let (GateTile gate) = tileInfo.tile
+            let gateState = gate.isOpen
+            let (ButtonTile buttonState) = (context.map.getAt gate.triggerPosition).tile
+            context.accept
+                (match gateState, buttonState, tileInfo.entityId with
+                | false, true, None -> [ GateOpenedEvent { position = tileInfo.position } ]
+                | true, false, None -> [ GateClosedEvent { position = tileInfo.position } ]
+                | _ -> [])
+   
+        getDependencies = fun tile ->
+            let (GateTile gate) = tile
+            [ AbsoluteMapDependency gate.triggerPosition ]
     }
     
+
     // Entity behaviors
+    
     let PlayerEntityBehavior = {
-        tryClearTile = fun _ -> IntentRejected []
+        tryClearTile = justReject
     }
 
     let BoxEntityBehavior = {
-        tryClearTile = fun args ->
-            match args.suggestedPushDirection with
-            | None -> IntentRejected [] // box can't just disappear without moving somewhere
-            | Some dir -> args.map.handleIntent args.map (MoveEntityIntent {
-                    sourcePosition = args.tileInfo.position
-                    targetPosition = args.tileInfo.position + dir.asPoint
+        tryClearTile = fun context intent ->
+            match intent.suggestedPushDirection with
+            | None -> context.reject [] // box can't just disappear without moving somewhere
+            | Some dir ->
+                let position, _ = context.map.getEntity intent.entityId
+                context.handleIntent (MoveEntityIntent {
+                    entityId = intent.entityId
+                    newPosition = position + dir.asPoint
                 })
     }
 
@@ -88,7 +108,7 @@ module Behaviors =
         | WallTile _ -> WallTileBehavior
         | InkTile _ -> WallTileBehavior
         | PinTile _ -> WallTileBehavior
-        | ButtonTile _ -> WallTileBehavior
+        | ButtonTile _ -> ButtonTileBehavior
         | GateTile _ -> GateTileBehavior
 
     let getEntityBehavior entity =

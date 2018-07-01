@@ -16,8 +16,12 @@ export class Point {
 
 export enum Direction { North = "North", East = "East", South = "South", West = "West" }
 
+export type EntityId = { id: number }
+
+export type EntityEntry = { entity: Entity, position: Point }
+
 export type GameMap = {
     size: Point,
     tiles: [Tile],
-    entities: [{ key: Point, value: Entity }]
+    entities: [{ key: EntityId, value: EntityEntry }]
 }

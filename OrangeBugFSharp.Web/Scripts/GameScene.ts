@@ -1,6 +1,6 @@
 ﻿import * as Three from "three"
 import { Camera, Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, MeshBasicMaterial, Mesh, TextureLoader, Texture, Audio, AudioLoader, PlaneGeometry, MeshStandardMaterial, DirectionalLight, WebGLShadowMap, ShadowMapType, PCFSoftShadowMap, DirectionalLightHelper, AmbientLight, Object3D, Geometry, Material, AudioListener, AudioBuffer, CylinderGeometry, OrthographicCamera, Euler } from "three"
-import { Tile, Entity, Effect, Point, Direction, GameMap } from "./CommonTypes"
+import { Tile, Entity, Effect, Point, Direction, GameMap, EntityId } from "./CommonTypes"
 
 class GameAssets {
 
@@ -160,16 +160,14 @@ class EntityVisual extends Object3D {
 class GameMapSceneInfo {
     size: Point
     tiles: TileVisual[]
-    entities: { key: Point, value: EntityVisual }[]
+    entities: { key: EntityId, value: EntityVisual }[]
 
     getTileAt(position: Point) {
         return this.tiles[position.y * this.size.x + position.x]
     }
 
-    getEntityAt(position: Point) {
-        return this.entities.find(e =>
-            e.key.x === position.x &&
-            e.key.y === position.y)
+    getEntity(entityId: EntityId) {
+        return this.entities.find(e => e.key.id == entityId.id)
     }
 
     constructor(initialMap: GameMap) {
@@ -181,7 +179,7 @@ class GameMapSceneInfo {
         this.entities = initialMap.entities.map(e => {
             return {
                 key: e.key,
-                value: new EntityVisual(e.value, e.key)
+                value: new EntityVisual(e.value.entity, e.value.position)
             }
         })
     }
@@ -265,14 +263,13 @@ export class GameScene {
                     break
 
                 case "EntityUpdateEffect":
-                    let entityVisual = this.mapSceneInfo.getEntityAt(effect.props.position)    
+                    let entityVisual = this.mapSceneInfo.getEntity(effect.props.entityId)
                     entityVisual.value.entity = effect.props.entity    
                     break
 
                 case "EntityMoveEffect":
-                    let entityVisual2 = this.mapSceneInfo.getEntityAt(effect.props.sourcePosition)
-                    entityVisual2.key = effect.props.targetPosition
-                    entityVisual2.value.mapPosition = effect.props.targetPosition
+                    let entityVisual2 = this.mapSceneInfo.getEntity(effect.props.entityId)
+                    entityVisual2.value.mapPosition = effect.props.newPosition
                     break
 
                 case "SoundEffect":

@@ -3,7 +3,7 @@
 module Serialization =
     open Newtonsoft.Json
     open Microsoft.FSharp.Reflection
-    open GameMap
+    open GameMapTypes
     open System
     open System.Collections
     open Newtonsoft.Json.Linq
@@ -132,7 +132,7 @@ module Serialization =
             match case, isEnum destinationType with
                 | Some case, true -> FSharpValue.MakeUnion(case, [||])
                 | Some case, false -> FSharpValue.MakeUnion(case, valuesOnly)
-                | None, _ -> failwith (sprintf "Could not find case '%s' for destination type '%s'" (string fields.[0]) (string destinationType))
+                | None, _ -> failwithf "Could not find case '%s' for destination type '%s'" (string fields.[0]) (string destinationType)
 
         override __.CanConvert(objectType) =
             FSharpType.IsUnion objectType &&

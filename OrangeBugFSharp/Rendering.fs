@@ -4,6 +4,7 @@ module Rendering =
     open System
     open Behaviors
     open TilesEntities
+    open GameMapTypes
     open GameMap
 
     let tileAsString tile =
@@ -16,28 +17,32 @@ module Rendering =
         | GateTile { isOpen = true } -> [| "░░░"; "░░░"; "░░░" |]
         | _ -> [| "???"; "???"; "???" |]
 
-    let entityAsString entity =
-        match entity with
-        | Some (PlayerEntity player) ->
-            match player.orientation with
-            | North -> "▲"
-            | East -> "►"
-            | South -> "▼"
-            | West -> "◄"
-        | Some BoxEntity -> "▥"
-        | Some (BalloonEntity _) -> "O"
+    let entityAsString (map: GameMap) entityId =
+        match entityId with
+        | Some id ->
+            let _, entity = map |> getEntity id
+            match entity with
+            | PlayerEntity player ->
+                match player.orientation with
+                | North -> "▲"
+                | East -> "►"
+                | South -> "▼"
+                | West -> "◄"
+            | BoxEntity -> "▥"
+            | BalloonEntity _ -> "O"
         | None -> " "
 
     let mapAsString (map: GameMap) =
         let rowAsString row =
             String.concat "\n" [
                 Seq.map (fun (t: TileInfo) -> (tileAsString t.tile).[0]) row |> String.concat " "
-                Seq.map (fun (t: TileInfo) -> [(tileAsString t.tile).[1].[0]; (entityAsString t.entity).[0]; (tileAsString t.tile).[1].[0]] |> Array.ofList |> String) row |> String.concat " "
+                Seq.map (fun (t: TileInfo) -> [(tileAsString t.tile).[1].[0]; (entityAsString map t.entityId).[0]; (tileAsString t.tile).[1].[0]] |> Array.ofList |> String) row |> String.concat " "
                 Seq.map (fun (t: TileInfo) -> (tileAsString t.tile).[2]) row |> String.concat " "
             ]
 
         let rows =
-            map.toSeq
+            let points = [0 .. map.size.y - 1] |> Seq.collect (fun y -> [0 .. map.size.x - 1] |> Seq.map (fun x -> Point.create x y))
+            Seq.map (fun p -> getAt p map) points
             |> Seq.chunkBySize map.size.x
             |> Seq.rev
             |> Seq.map rowAsString

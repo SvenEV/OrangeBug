@@ -22,6 +22,7 @@ class GameClient {
 
         this.connection.on("ReceiveInitialMap", (initialMap: GameMap) => {
             this.scene = new GameScene(initialMap)
+            console.info(initialMap)
             window.onresize = () => this.scene.adjustForWindowSize()
         })
 

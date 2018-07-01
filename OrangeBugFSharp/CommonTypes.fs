@@ -9,6 +9,8 @@ module CommonTypes =
     type InkColor = Red | Green | Blue
     type Direction = North | East | South | West
 
+    let (|Point|) p = (p.x, p.y)
+
     type Point with
         static member create x y = { x = x; y = y }
         static member zero = Point.create 0 0
@@ -18,6 +20,7 @@ module CommonTypes =
         static member (+) (p, q) = Point.create (p.x + q.x) (p.y + q.y)
         static member (-) (p, q) = Point.create (p.x - q.x) (p.y - q.y)
         static member (~-) p = Point.create -p.x -p.y
+        static member (*) (c, p) = Point.create (c * p.x) (c * p.y)
 
         [<JsonIgnore>]
         member this.asDirection =

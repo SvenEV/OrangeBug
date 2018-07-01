@@ -3,19 +3,19 @@
 module SessionManager =
     open OrangeBug.GameMap
     open OrangeBug
-    open OrangeBug.TilesEntities
+    open GameMapTypes
+    open TilesEntities
 
     type GameSession = {
-        map: GameMap
+        mutable map: GameMap
     }
 
     let createInitialMap() =
-        let map = GameMap.create 14 10
-        map.setAt (Point.create 4 4) (ButtonTile false) None
-        map.setAt (Point.create 5 5) (GateTile { isOpen = false; triggerPosition = Point.zero }) None
-        map.setAt (Point.create 6 5) (GateTile { isOpen = true; triggerPosition = Point.zero }) None
-        map.setAt (Point.create 3 2) PathTile (Some BoxEntity)
-        map
+        GameMap.create 8 6
+        |> updateTile (Point.create 4 4) (ButtonTile false)
+        |> updateTile (Point.create 5 5) (GateTile { isOpen = false; triggerPosition = Point.create 4 4 })
+        |> updateTile (Point.create 6 5) (GateTile { isOpen = true; triggerPosition = Point.create 4 4 })
+        |> spawnEntity (Point.create 3 2) BoxEntity
 
     let mutable sessions = Map.empty<string, GameSession>
 

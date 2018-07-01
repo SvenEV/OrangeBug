@@ -3,7 +3,6 @@
 open Microsoft.AspNetCore.SignalR
 open OrangeBug.GameMap
 open OrangeBug
-open OrangeBug.TilesEntities
 open OrangeBug.IntentsEvents
 open System.Threading.Tasks
 open OrangeBug.Web
@@ -24,9 +23,9 @@ type GameHub() =
         | None -> ()
         | Some direction ->
             let intent = MovePlayerIntent { name = "Player"; direction = direction }
-            let result = Gameplay.handleIntent session.map.accessor intent
-            let effects = List.collect (Game.eventToEffects session.map) result.events
-            session.map.applyEffects effects
+            let result = Gameplay.handleIntent (IntentContext.create session.map) intent
+            session.map <- result.mapState
+            let effects = List.collect (Effects.eventToEffects (accessor session.map)) result.emittedEvents
             do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEffects", effects))
     }
 

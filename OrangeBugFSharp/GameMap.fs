@@ -1,129 +1,195 @@
 ﻿namespace OrangeBug
 
 module GameMap =
+    open Grid
     open TilesEntities
     open Behaviors
     open Effects
-    open Newtonsoft.Json
+    open DependencyGraph
+    open GameMapTypes
+    open IntentsEvents
 
-    type GameMap =
+    let private updateTileEntry position updater (tiles: TileEntry Grid) =
+        let tileEntry = tiles.Find position
+        tiles.Add position (updater tileEntry)
+
+    let private updateEntityEntry id updater (entities: Map<EntityId, EntityEntry>) =
+        let currentEntry = entities.TryFind id
+        let newEntry = updater currentEntry
+        match currentEntry, newEntry with
+        | _, Some newEntry -> entities |> Map.add id newEntry // add/update entity
+        | Some _, None -> entities.Remove id // remove entity
+        | None, None -> entities
+
+    // TODO: Clarify that this is to update the DependencyGraph
+    let addForTile tile position graph =
+        let behavior = Behaviors.getTileBehavior tile
+        let dependencies = behavior.getDependencies tile
+        dependencies |> List.fold
+            (fun (g: DependencyGraph) dependency ->
+                let target =
+                    match dependency with
+                    | RelativeMapDependency offset -> position + offset
+                    | AbsoluteMapDependency pos -> pos
+                addEdge position target g)
+            graph
+
+    let getAt position map =
+        let tileEntry = map.tiles.Find position
         {
-            size: Point
-            tiles: Tile[]
-            
-            [<field: JsonIgnore>]
-            mutable entities: Map<Point, Entity>
-
-            [<field: JsonIgnore>]
-            mutable players: Map<string, Point>
+            position = position
+            tile = tileEntry.tile
+            entityId = tileEntry.entityId
         }
 
-        member private map.pointToIndex (p: Point) =
-            p.y * map.size.x + p.x
-
-        static member create width height = {
-            size = Point.create width height
-
-            players = Map.ofList [ "Player", Point.create 1 1 ]
+    let getEntity id map =
+        match map.entities.TryFind id with
+        | Some entry -> entry.position, entry.entity
+        | None -> failwithf "getEntity failed: There is no entity with ID '%O'" id
         
-            entities = Map.ofList [ Point.create 1 1, PlayerEntity { name = "Player"; orientation = East } ]
-            
-            tiles = Array.init (width * height) (fun i ->
-                let x, y = (i % width, i / width)
-                match (x, y) with
-                | (0, _) -> WallTile
-                | (_, 0) -> WallTile
-                | (x, _) when x = width - 1 -> WallTile
-                | (_, y) when y = height - 1 -> WallTile
-                | _ -> PathTile)
-        }
+    let getPlayerId name map =
+        map.players.[name]
+        
+    let getPositionsDependentOn position map =
+        match map.dependencies.inEdges.TryFind position with
+        | Some points -> points
+        | None -> Set.empty
 
-        member map.getAt p =
-            let i = map.pointToIndex p
+    // Mutation functions
+    // (these update the dependency graph but do not cause any tile updates or other intents)
+    let updateTile position newTile map =
+        let newDependencies =
+            map.dependencies
+            |> removeOutEdges position
+            |> addForTile newTile position
+            
+        let newTiles =
+            map.tiles 
+            |> updateTileEntry position (fun entry -> TileEntry.create entry.entityId newTile)
+
+        { map with tiles = newTiles; dependencies = newDependencies }
+
+    let updateEntity id newEntity map =
+        let newEntities = map.entities |> updateEntityEntry id (fun entry ->
+            match entry with
+            | Some entry -> Some (EntityEntry.create entry.position newEntity)
+            | None -> failwithf "updateEntity failed: There is no entity with ID '%O'" id)
+        { map with entities = newEntities }
+
+    let spawnEntity position newEntity map =
+        let id = EntityId.create
+            
+        let newEntities = map.entities |> updateEntityEntry id (fun entry ->
+            match entry with 
+            | Some _ -> failwithf "spawnEntity failed: There is already an entity with ID '%O'" id
+            | None -> Some (EntityEntry.create position newEntity))
+
+        let newPlayers =
+            match newEntity with
+            | PlayerEntity player -> map.players |> Map.add player.name id
+            | _ -> map.players
+
+        let newTiles =
+            map.tiles
+            |> updateTileEntry position (fun entry -> TileEntry.WithEntity id entry.tile)
+
+        { map with tiles = newTiles; entities = newEntities; players = newPlayers }
+
+    let despawnEntity id map =
+        let entry = map.entities.[id]
+            
+        let newPlayers = 
+            match entry.entity with
+            | PlayerEntity player -> map.players.Remove player.name
+            | _ -> map.players
+
+        let newEntities = map.entities |> updateEntityEntry id (fun entry ->
+            match entry with
+            | Some _ -> None
+            | None -> failwithf "despawnEntity failed: There is no entity with ID '%O'" id)
+
+        let newTiles =
+            map.tiles 
+            |> updateTileEntry entry.position (fun e -> TileEntry.WithoutEntity e.tile)
+
+        { map with tiles = newTiles; entities = newEntities; players = newPlayers }
+        
+    let moveEntity newPosition id map =
+        let entry = map.entities.[id]
+
+        let newEntities = map.entities |> updateEntityEntry id (fun entry ->
+            match entry with
+            | Some entry -> Some (EntityEntry.create newPosition entry.entity)
+            | None -> failwithf "moveEntity failed: There is no entity with ID '%O'" id)
+
+        let newTiles =
+            map.tiles
+            |> updateTileEntry entry.position (fun e -> TileEntry.WithoutEntity e.tile)
+            |> updateTileEntry newPosition (fun e -> TileEntry.WithEntity id e.tile)
+
+        { map with tiles = newTiles; entities = newEntities }
+
+    let applyEffect (map: GameMap) effect =
+        match effect with
+        | TileUpdateEffect e -> map |> updateTile e.position e.tile
+        | EntityUpdateEffect e -> map |> updateEntity e.entityId e.entity
+        | EntityMoveEffect e -> map |> moveEntity e.newPosition e.entityId
+        | EntitySpawnEffect e -> map |> spawnEntity e.position e.entity
+        | EntityDespawnEffect e -> map |> despawnEntity e.entityId
+        | SoundEffect e -> map
+
+    let accessor map = {
+        getAt = fun p -> getAt p map
+        getEntity = fun id -> getEntity id map
+        getPlayerId = fun name -> getPlayerId name map
+        getPositionsDependentOn = fun pos -> getPositionsDependentOn pos map
+    }
+
+    let rec applyEvent (map: GameMap) event =
+        let effects = Effects.eventToEffects (accessor map) event
+        List.fold applyEffect map effects
+
+    and accept context events =
+        let newMap = events |> Seq.fold applyEvent context.mapState
+        createIntentContext newMap (context.emittedEvents @ events) IntentAccepted
+
+    and reject context events =
+        let newMap = events |> Seq.fold applyEvent context.mapState
+        createIntentContext newMap (context.emittedEvents @ events) IntentRejected
+
+    and private createIntentContext map events intentResult = {
+        mapState = map
+        map = accessor map
+        emittedEvents = events
+        intentResult = intentResult
+
+        doHandleIntent = Gameplay.handleIntent
+        acceptIntent = accept
+        rejectIntent = reject
+    }
+
+    type IntentContext with
+        static member create map = createIntentContext map [] IntentAccepted
+
+    type GameMap with
+        static member create width height =
+            let playerId = EntityId.create
+            let playerPos = Point.create 1 1
             {
-                position = p
-                tile = map.tiles.[i]
-                entity = Map.tryFind p map.entities
+                size = Point.create width height
+                players = Map.ofList [ "Player", playerId ]
+                entities = Map.ofList [
+                    playerId, EntityEntry.create playerPos (PlayerEntity { name = "Player"; orientation = East })
+                ]
+            
+                tiles = Grid.init (Point.create width height) (fun p ->
+                    match p with
+                    | p when p = playerPos -> TileEntry.WithEntity playerId PathTile
+                    | Point (0, _) -> TileEntry.WithoutEntity WallTile
+                    | Point (_, 0) -> TileEntry.WithoutEntity WallTile
+                    | Point (x, _) when x = width - 1 -> TileEntry.WithoutEntity WallTile
+                    | Point (_, y) when y = height - 1 -> TileEntry.WithoutEntity WallTile
+                    | _ -> TileEntry.WithoutEntity PathTile)
+
+                dependencies = DependencyGraph.empty
             }
-
-        member map.getPlayerPosition name =
-            Map.find name map.players
-
-        member map.getPlayer name =
-            let playerPos = Map.find name map.players
-            let playerTile = map.getAt playerPos
-            let player =
-                match playerTile.entity with
-                | Some (PlayerEntity e) -> Some e
-                | _ -> None
-
-            playerPos, player.Value
-
-        member map.setAt p tile entity =
-            let i = map.pointToIndex p
-            map.tiles.[i] <- tile
-            match entity with
-            | Some theEntity -> map.entities <- Map.add p theEntity map.entities
-            | None -> map.entities <- Map.remove p map.entities
-        
-        [<JsonIgnore>]
-        member map.toSeq =
-            let points = [0 .. map.size.y - 1] |> Seq.collect (fun y -> [0 .. map.size.x - 1] |> Seq.map (fun x -> Point.create x y))
-            Seq.map map.getAt points
-
-        member private map.applyEffect effect =
-            match effect with
-            | TileUpdateEffect e ->
-                let current = map.getAt e.position
-                map.setAt e.position e.tile current.entity
-
-            | EntityUpdateEffect e ->
-                let current = map.getAt e.position
-                map.setAt e.position current.tile (Some e.entity)
-
-            | EntityMoveEffect e ->
-                let currentSource = map.getAt e.sourcePosition
-                map.setAt e.sourcePosition currentSource.tile None
-                let currentTarget = map.getAt e.targetPosition
-                map.setAt e.targetPosition currentTarget.tile currentSource.entity
-
-                match currentTarget.entity with
-                | Some (PlayerEntity player) -> map.players <- Map.remove player.name map.players
-                | _ -> ()
-
-                match currentSource.entity with
-                | Some (PlayerEntity player) -> map.players <- Map.add player.name e.targetPosition map.players
-                | _ -> ()
-
-            | EntitySpawnEffect e ->
-                let current = map.getAt e.position
-                map.setAt e.position current.tile (Some e.entity)
-
-                match current.entity with
-                | Some (PlayerEntity player) -> map.players <- Map.remove player.name map.players
-                | _ -> ()
-
-                match e.entity with
-                | PlayerEntity player -> map.players <- Map.add player.name e.position map.players
-                | _ -> ()
-     
-            | EntityDespawnEffect e ->
-                let current = map.getAt e.position
-                map.setAt e.position current.tile None
-
-                match current.entity with
-                | Some (PlayerEntity player) -> map.players <- Map.remove player.name map.players
-                | _ -> ()
-
-            | SoundEffect e -> ()
-
-        member map.applyEffects effects =
-            List.iter (fun e -> map.applyEffect e) effects
-
-        [<JsonIgnore>]
-        member map.accessor = {
-            getAt = map.getAt
-            getPlayerPosition = map.getPlayerPosition
-            getPlayer = map.getPlayer
-            handleIntent = Gameplay.handleIntent
-        }

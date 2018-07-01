@@ -1,62 +1,97 @@
 ﻿namespace OrangeBug
 
 module IntentsEvents =
+    open TilesEntities
+    open GameMapTypes
 
     // Intents
+
+    type UpdateDependentTilesIntent = {
+        position: Point
+    }
+
+    type UpdateAfterDependencyChangedIntent = {
+        position: Point
+        dependencyPosition: Point
+    }
+
     type MovePlayerIntent = {
         name: string
         direction: Direction
     }
 
-    type MoveEntityIntent =
-        {
-            sourcePosition: Point
-            targetPosition: Point
-        }
-        member this.offset = this.targetPosition - this.sourcePosition
+    type MoveEntityIntent = {
+        entityId: EntityId
+        newPosition: Point
+    }
 
     type ClearEntityFromTileIntent = {
-        position: Point
+        entityId: EntityId
         suggestedPushDirection: Direction option
     }
 
+    type AttachEntityToTileIntent = {
+        position: Point
+        entityToAttach: Entity
+    }
+
+    type DetachEntityFromTileIntent = {
+        position: Point
+    }
+
     type Intent =
+        | UpdateDependentTilesIntent of UpdateDependentTilesIntent
+        | UpdateAfterDependencyChangedIntent of UpdateAfterDependencyChangedIntent
         | MovePlayerIntent of MovePlayerIntent
         | MoveEntityIntent of MoveEntityIntent
         | ClearEntityFromTileIntent of ClearEntityFromTileIntent
-        | DetachEntityFromTileIntent
-        | AttachEntityToTileIntent
+        | AttachEntityToTileIntent of AttachEntityToTileIntent
+        | DetachEntityFromTileIntent of DetachEntityFromTileIntent
+
 
     // Events
+    
     type PlayerRotatedEvent = { name: string; orientation: Direction }
-    type EntityMovedEvent = { sourcePosition: Point; targetPosition: Point }
-    type BalloonColoredEvent = { position: Point; color: InkColor }
+    type EntityMovedEvent = { entityId: EntityId; newPosition: Point }
+    type BalloonColoredEvent = { entityId: EntityId; color: InkColor }
+    type ButtonPressedEvent = { position: Point }
+    type ButtonReleasedEvent = { position: Point }
+    type GateOpenedEvent = { position: Point }
+    type GateClosedEvent = { position: Point }
 
     type Event =
         | PlayerRotatedEvent of PlayerRotatedEvent
         | EntityMovedEvent of EntityMovedEvent
-        | ButtonPressedEvent
-        | ButtonReleasedEvent
+        | ButtonPressedEvent of ButtonPressedEvent
+        | ButtonReleasedEvent of ButtonReleasedEvent
+        | GateOpenedEvent of GateOpenedEvent
+        | GateClosedEvent of GateClosedEvent
         | BalloonColoredEvent of BalloonColoredEvent
-        | BalloonPoppedEvent of Point
+        | BalloonPoppedEvent of EntityId
+
+
+    // Infrastructure
     
-    // Helpers
-    type IntentResult =
-        | IntentAccepted of Event list
-        | IntentRejected of Event list
-        member this.events =
-            match this with
-            | IntentAccepted events -> events
-            | IntentRejected events -> events
-    
+    type IntentResult = IntentAccepted | IntentRejected
+
+    type IntentContext =
+        {
+            mapState: GameMap
+            map: MapAccessor
+            emittedEvents: Event list
+            intentResult: IntentResult
+
+            doHandleIntent: IntentContext -> Intent -> IntentContext
+            acceptIntent: IntentContext -> Event list -> IntentContext
+            rejectIntent: IntentContext -> Event list -> IntentContext
+        }
+        member this.handleIntent = this.doHandleIntent this
+        member this.accept = this.acceptIntent this
+        member this.reject = this.rejectIntent this
+
     let bind handleNextIntent prevResult =
-        match prevResult with
-        // if previous intent failed, do not handle next intent (fail early)
-        | IntentRejected _ as rejection -> rejection
-        // if previous intent succeeded, handle next and return events from both intents
-        | IntentAccepted events ->
-            match handleNextIntent events with
-            | IntentAccepted moreEvents -> IntentAccepted (events @ moreEvents)
-            | IntentRejected moreEvents -> IntentRejected (events @ moreEvents)
+        match prevResult.intentResult with
+        | IntentRejected -> prevResult // if previous intent failed, don't handle next intent (fail early)
+        | IntentAccepted -> handleNextIntent prevResult
     
     let (>>=) prevResult handleNextIntent = bind handleNextIntent prevResult

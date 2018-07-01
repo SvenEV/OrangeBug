@@ -3,54 +3,92 @@
 module Gameplay =
     open IntentsEvents
     open Behaviors
-    
-    let rec handleIntent (map: MapAccessor) intent =
+
+    let rec handleIntent context intent =
         match intent with
+        | UpdateDependentTilesIntent intent ->
+            let handleDependency ctx pos =
+                let (updateResult: IntentContext) = handleIntent ctx (UpdateAfterDependencyChangedIntent {
+                    position = pos;
+                    dependencyPosition = intent.position
+                })
+                // Failing updates should not fail the whole intent chain
+                updateResult.accept []
+
+            let dependencies = context.map.getPositionsDependentOn intent.position
+            dependencies |> Set.fold handleDependency (context.accept [])
+
+        | UpdateAfterDependencyChangedIntent intent ->
+            let tileToUpdate = context.map.getAt intent.position
+            let behavior = getTileBehavior tileToUpdate.tile
+            behavior.update context {
+                position = intent.position
+                dependencyPosition = intent.dependencyPosition
+            }
+
         | MovePlayerIntent intent ->
-            let playerPos = map.getPlayerPosition intent.name
+            let playerId = context.map.getPlayerId intent.name
+            let playerPos, _ = context.map.getEntity playerId
             let rotateEvent = PlayerRotatedEvent { name = intent.name; orientation = intent.direction }
-            let subIntent = handleIntent map (MoveEntityIntent {
-                sourcePosition = playerPos;
-                targetPosition = playerPos + intent.direction.asPoint
+            let subIntent = handleIntent context (MoveEntityIntent {
+                entityId = playerId;
+                newPosition = playerPos + intent.direction.asPoint
             })
-            match subIntent with
-            | IntentAccepted evs -> IntentAccepted (rotateEvent :: evs)
-            | IntentRejected evs -> IntentRejected (rotateEvent :: evs)
+            match subIntent.intentResult with
+            | IntentAccepted -> subIntent.accept [ rotateEvent ]
+            | IntentRejected -> subIntent.reject [ rotateEvent ]
 
         | MoveEntityIntent intent ->
-            let source = map.getAt intent.sourcePosition
-            let target = map.getAt intent.targetPosition
+            let oldPosition, entity = context.map.getEntity intent.entityId
+            let target = context.map.getAt intent.newPosition
+            let offset = intent.newPosition - oldPosition
 
-            let clearTarget _ =
-                match target.entity with
-                | None -> IntentAccepted [] // no entity to remove
-                | Some entity ->
-                    let behavior = entity |> Behaviors.getEntityBehavior
-                    behavior.tryClearTile {
-                        tileInfo = target;
-                        map = map
-                        suggestedPushDirection = intent.offset.asDirection
-                    }
+            let clearTarget ctx =
+                match target.entityId with
+                | Some id ->
+                    handleIntent ctx (ClearEntityFromTileIntent { 
+                        entityId = id
+                        suggestedPushDirection = offset.asDirection
+                    })
+                | None -> ctx.accept []
             
-            let detachFromSource _ =
-                let behavior = source.tile |> Behaviors.getTileBehavior
-                behavior.tryDetachEntity { tileInfo = source; map = map }
+            let detachFromSource ctx =
+                handleIntent ctx (DetachEntityFromTileIntent { position = oldPosition })
 
-            let attachToTarget _ =
-                let behavior = target.tile |> Behaviors.getTileBehavior
-                behavior.tryAttachEntity {
-                    tileInfo = target
-                    map = map
-                    entityToAttach = source.entity.Value
-                }
+            let attachToTarget ctx =
+                handleIntent ctx (AttachEntityToTileIntent {
+                    position = intent.newPosition
+                    entityToAttach = entity
+                })
 
-            let emitEvent _ =
-                IntentAccepted (EntityMovedEvent { 
-                    sourcePosition = intent.sourcePosition
-                    targetPosition = intent.targetPosition
+            let emitEvent (ctx: IntentContext) =
+                ctx.accept (EntityMovedEvent { 
+                    entityId = intent.entityId
+                    newPosition = intent.newPosition
                 } :: [])
 
-            [] |> clearTarget >>= detachFromSource >>= attachToTarget >>= emitEvent
+            let updateSourceDependentTiles map =
+                handleIntent map (UpdateDependentTilesIntent { position = oldPosition })
 
-        | _ -> IntentRejected []
+            let updateTargetDependentTiles map =
+                handleIntent map (UpdateDependentTilesIntent { position = intent.newPosition })
 
+            context |> clearTarget
+                >>= detachFromSource 
+                >>= attachToTarget 
+                >>= emitEvent
+                >>= updateSourceDependentTiles
+                >>= updateTargetDependentTiles
+
+        | ClearEntityFromTileIntent intent ->
+            let _, entity = context.map.getEntity intent.entityId
+            let behavior = entity |> Behaviors.getEntityBehavior
+            behavior.tryClearTile context intent
+
+        | AttachEntityToTileIntent intent ->
+            let behavior = (context.map.getAt intent.position).tile |> Behaviors.getTileBehavior
+            behavior.tryAttachEntity context intent
+
+        | DetachEntityFromTileIntent intent ->
+            let behavior = (context.map.getAt intent.position).tile |> Behaviors.getTileBehavior
+            behavior.tryDetachEntity context { position = intent.position; }
