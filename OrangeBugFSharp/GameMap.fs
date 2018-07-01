@@ -21,8 +21,7 @@ module GameMap =
         | Some _, None -> entities.Remove id // remove entity
         | None, None -> entities
 
-    // TODO: Clarify that this is to update the DependencyGraph
-    let addForTile tile position graph =
+    let private addDependenciesForTile tile position graph =
         let behavior = Behaviors.getTileBehavior tile
         let dependencies = behavior.getDependencies tile
         dependencies |> List.fold
@@ -33,6 +32,9 @@ module GameMap =
                     | AbsoluteMapDependency pos -> pos
                 addEdge position target g)
             graph
+    
+
+    // Map read access
 
     let getAt position map =
         let tileEntry = map.tiles.Find position
@@ -55,13 +57,21 @@ module GameMap =
         | Some points -> points
         | None -> Set.empty
 
-    // Mutation functions
-    // (these update the dependency graph but do not cause any tile updates or other intents)
+    let accessor map = {
+        getAt = fun p -> getAt p map
+        getEntity = fun id -> getEntity id map
+        getPlayerId = fun name -> getPlayerId name map
+        getPositionsDependentOn = fun pos -> getPositionsDependentOn pos map
+    }
+
+    
+    // Map mutation functions
+
     let updateTile position newTile map =
         let newDependencies =
             map.dependencies
             |> removeOutEdges position
-            |> addForTile newTile position
+            |> addDependenciesForTile newTile position
             
         let newTiles =
             map.tiles 
@@ -138,16 +148,12 @@ module GameMap =
         | EntityDespawnEffect e -> map |> despawnEntity e.entityId
         | SoundEffect e -> map
 
-    let accessor map = {
-        getAt = fun p -> getAt p map
-        getEntity = fun id -> getEntity id map
-        getPlayerId = fun name -> getPlayerId name map
-        getPositionsDependentOn = fun pos -> getPositionsDependentOn pos map
-    }
-
     let rec applyEvent (map: GameMap) event =
         let effects = Effects.eventToEffects (accessor map) event
         List.fold applyEffect map effects
+
+    
+    // Intent helpers
 
     and accept context events =
         let newMap = events |> Seq.fold applyEvent context.mapState
