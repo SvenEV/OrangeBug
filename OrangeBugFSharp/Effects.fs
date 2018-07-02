@@ -61,7 +61,7 @@ module Effects =
     let eventToEffects (map: MapAccessor) ev =
         match ev with
         | EntityMovedEvent ev ->
-            EntityMoveEffect { entityId = ev.entityId; newPosition = ev.newPosition } :: []
+            [ EntityMoveEffect { entityId = ev.entityId; newPosition = ev.newPosition } ]
 
         | PlayerRotatedEvent ev ->
             let playerId = map.getPlayerId ev.name

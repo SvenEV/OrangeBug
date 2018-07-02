@@ -29,8 +29,8 @@ module Grid =
             nw: 'a Node
             ne: 'a Node
         }
-        static member create child = { sw = child; se = child; nw = child; ne = child }
-        member n.cell c =
+        static member Create child = { sw = child; se = child; nw = child; ne = child }
+        member n.Cell c =
             match c with
             | SW -> n.sw
             | SE -> n.se
@@ -72,7 +72,7 @@ module Grid =
             | Leaf v -> Some v
             | InnerNode node ->
                 let cell = classify p nodeSize
-                findCore (adjustPoint cell nodeSize p) (node.cell cell) (nodeSize / 2)
+                findCore (adjustPoint cell nodeSize p) (node.Cell cell) (nodeSize / 2)
 
         findCore p grid.root (treeSize grid.size)
 
@@ -93,19 +93,19 @@ module Grid =
                     let newChild = makeNode (adjustPoint cell nodeSize p) Empty halfNodeSize
                     InnerNode
                         (match cell with
-                        | SW -> { InnerNode.create Empty with sw = newChild }
-                        | SE -> { InnerNode.create Empty with se = newChild }
-                        | NW -> { InnerNode.create Empty with nw = newChild }
-                        | NE -> { InnerNode.create Empty with ne = newChild })
+                        | SW -> { InnerNode.Create Empty with sw = newChild }
+                        | SE -> { InnerNode.Create Empty with se = newChild }
+                        | NW -> { InnerNode.Create Empty with nw = newChild }
+                        | NE -> { InnerNode.Create Empty with ne = newChild })
                 | InnerNode node ->
-                    let newChild = makeNode (adjustPoint cell nodeSize p) (node.cell cell) halfNodeSize
+                    let newChild = makeNode (adjustPoint cell nodeSize p) (node.Cell cell) halfNodeSize
                     InnerNode
                         (match cell with
                         | SW -> { node with sw = newChild }
                         | SE -> { node with se = newChild }
                         | NW -> { node with nw = newChild }
                         | NE -> { node with ne = newChild })
-                | Leaf value ->
+                | Leaf _ ->
                     failwith "fatal Grid error: Reached leaf node at nodeSize > 1"
 
         let newRoot = makeNode p grid.root (treeSize grid.size)
@@ -125,7 +125,7 @@ module Grid =
                 | Empty -> Empty
                 | InnerNode node ->
                     let cell = classify p nodeSize
-                    let newChild = mergeNode (adjustPoint cell nodeSize p) (node.cell cell) (nodeSize / 2)
+                    let newChild = mergeNode (adjustPoint cell nodeSize p) (node.Cell cell) (nodeSize / 2)
                     simplify (InnerNode 
                         (match cell with
                         | SW -> { node with sw = newChild }
@@ -133,7 +133,7 @@ module Grid =
                         | NW -> { node with nw = newChild }
                         | NE -> { node with ne = newChild }))
 
-                | Leaf value ->
+                | Leaf _ ->
                     failwith "fatal Grid error: Reached leaf node at nodeSize > 1"
 
         let newRoot = mergeNode p grid.root (treeSize grid.size)
