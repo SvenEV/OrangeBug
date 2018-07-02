@@ -35,7 +35,7 @@ module Program =
             | None -> ()
             | Some direction ->
                 let intent = MovePlayerIntent { name = "Player"; direction = direction }
-                let result = Gameplay.handleIntent (IntentContext.Create map) intent
+                let result = GameMap.processIntent intent map
                 map <- result.mapState
             
 

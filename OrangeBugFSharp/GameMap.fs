@@ -157,11 +157,11 @@ module GameMap =
     
     // Intent helpers
 
-    let rec accept context events =
+    let rec private accept context events =
         let newMap = events |> Seq.fold applyEvent context.mapState
         createIntentContext newMap (context.emittedEvents @ events) IntentAccepted
 
-    and reject context events =
+    and private reject context events =
         let newMap = events |> Seq.fold applyEvent context.mapState
         createIntentContext newMap (context.emittedEvents @ events) IntentRejected
 
@@ -178,6 +178,24 @@ module GameMap =
 
     type IntentContext with
         static member Create map = createIntentContext map [] IntentAccepted
+
+    let processIntent intent map =
+        let doIntent (ctx: IntentContext) =
+            ctx.HandleIntent intent
+
+        let updateAffectedTiles (ctx: IntentContext) =
+            let effects = ctx.emittedEvents |> Seq.collect (eventToEffects ctx.map)
+            let points = effects |> Seq.collect (function
+                | TileUpdateEffect e -> [ e.position ]
+                | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ] // TODO: hm...
+                )
+
+            // TODO: Analyze effects to determine affected positions on the map
+            ctx.Accept []
+
+        (IntentContext.Create map)
+            |> doIntent
+            >>= updateAffectedTiles
 
     type GameMap with
         static member Create width height =
