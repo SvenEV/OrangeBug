@@ -79,14 +79,14 @@ module GameMap =
             
         let newTiles =
             map.tiles 
-            |> updateTileEntry position (fun entry -> TileEntry.create entry.entityId newTile)
+            |> updateTileEntry position (fun entry -> TileEntry.Create entry.entityId newTile)
 
         { map with tiles = newTiles; dependencies = newDependencies }
 
     let updateEntity id newEntity map =
         let newEntities = map.entities |> updateEntityEntry id (fun entry ->
             match entry with
-            | Some entry -> Some (EntityEntry.create entry.position newEntity)
+            | Some entry -> Some (EntityEntry.Create entry.position newEntity)
             | None -> failwithf "updateEntity failed: There is no entity with ID '%O'" id)
         { map with entities = newEntities }
 
@@ -94,7 +94,7 @@ module GameMap =
         let newEntities = map.entities |> updateEntityEntry id (fun entry ->
             match entry with 
             | Some _ -> failwithf "spawnEntity failed: There is already an entity with ID '%O'" id
-            | None -> Some (EntityEntry.create position newEntity))
+            | None -> Some (EntityEntry.Create position newEntity))
 
         let newPlayers =
             match newEntity with
@@ -131,7 +131,7 @@ module GameMap =
 
         let newEntities = map.entities |> updateEntityEntry id (fun entry ->
             match entry with
-            | Some entry -> Some (EntityEntry.create newPosition entry.entity)
+            | Some entry -> Some (EntityEntry.Create newPosition entry.entity)
             | None -> failwithf "moveEntity failed: There is no entity with ID '%O'" id)
 
         let newTiles =
@@ -148,7 +148,7 @@ module GameMap =
         | EntityMoveEffect e -> map |> moveEntity e.newPosition e.entityId
         | EntitySpawnEffect e -> map |> spawnEntity e.position e.entityId e.entity
         | EntityDespawnEffect e -> map |> despawnEntity e.entityId
-        | SoundEffect e -> map
+        | SoundEffect _ -> map
 
     let applyEvent (map: GameMap) event =
         let effects = Effects.eventToEffects (accessor map) event
@@ -177,17 +177,17 @@ module GameMap =
     }
 
     type IntentContext with
-        static member create map = createIntentContext map [] IntentAccepted
+        static member Create map = createIntentContext map [] IntentAccepted
 
     type GameMap with
-        static member create width height =
+        static member Create width height =
             let playerId = EntityId.create
             let playerPos = Point.create 1 1
             {
                 size = Point.create width height
                 players = Map.ofList [ "Player", playerId ]
                 entities = Map.ofList [
-                    playerId, EntityEntry.create playerPos (PlayerEntity { name = "Player"; orientation = East })
+                    playerId, EntityEntry.Create playerPos (PlayerEntity { name = "Player"; orientation = East })
                 ]
             
                 tiles = Grid.init (Point.create width height) (fun p ->

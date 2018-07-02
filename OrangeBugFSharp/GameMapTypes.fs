@@ -11,7 +11,7 @@ module GameMapTypes =
             tile: Tile
             entityId: EntityId option
         }
-        static member create entityId tile = { tile = tile; entityId = entityId }
+        static member Create entityId tile = { tile = tile; entityId = entityId }
         static member WithEntity entityId tile = { tile = tile; entityId = Some entityId }
         static member WithoutEntity tile = { tile = tile; entityId = None }
 
@@ -20,7 +20,7 @@ module GameMapTypes =
             position: Point
             entity: Entity
         }
-        static member create position entity = { position = position; entity = entity }
+        static member Create position entity = { position = position; entity = entity }
 
     type GameMap = 
         {
@@ -33,7 +33,7 @@ module GameMapTypes =
         }
 
         [<JsonProperty("tiles")>]
-        member this.tilesForJson =
+        member this.TilesForJson =
             this.tiles.AsSeq
             |> Seq.sortBy (fun (p, _) -> p.y, p.x)
             |> Seq.map (fun o -> (snd o).tile)

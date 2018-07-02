@@ -7,7 +7,7 @@ module SampleMaps =
     open GameMap
 
     let createInitialMap() =
-        GameMap.create 12 8
+        GameMap.Create 12 8
         |> updateTile (Point.create 4 4) (ButtonTile false)
         |> updateTile (Point.create 5 4) (GateTile { isOpen = true; triggerPosition = Point.create 4 4 })
         |> updateTile (Point.create 5 5) (GateTile { isOpen = false; triggerPosition = Point.create 4 4 })
