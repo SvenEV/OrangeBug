@@ -1,5 +1,4 @@
 ﻿import * as SignalR from "@aspnet/signalr"
-import * as Paper from "paper"
 import { GameScene } from "./GameScene";
 import { GameMap, Direction } from "./CommonTypes";
 

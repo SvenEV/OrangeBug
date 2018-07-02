@@ -12,6 +12,7 @@
   "dependencies": {
     "@aspnet/signalr": "^1.0.0",
     "requirejs": "2.3.5",
+    "three": "0.94.0",
     "@types/three": "0.92.8"
   },
   "devDependencies": {
