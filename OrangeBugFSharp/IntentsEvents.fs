@@ -10,9 +10,8 @@ module IntentsEvents =
         position: Point
     }
 
-    type UpdateAfterDependencyChangedIntent = {
+    type UpdateTileIntent = {
         position: Point
-        dependencyPosition: Point
     }
 
     type MovePlayerIntent = {
@@ -32,7 +31,7 @@ module IntentsEvents =
 
     type AttachEntityToTileIntent = {
         position: Point
-        entityToAttach: Entity
+        entityToAttach: EntityId
     }
 
     type DetachEntityFromTileIntent = {
@@ -41,7 +40,7 @@ module IntentsEvents =
 
     type Intent =
         | UpdateDependentTilesIntent of UpdateDependentTilesIntent
-        | UpdateAfterDependencyChangedIntent of UpdateAfterDependencyChangedIntent
+        | UpdateTileIntent of UpdateTileIntent
         | MovePlayerIntent of MovePlayerIntent
         | MoveEntityIntent of MoveEntityIntent
         | ClearEntityFromTileIntent of ClearEntityFromTileIntent
@@ -53,7 +52,7 @@ module IntentsEvents =
     
     type PlayerRotatedEvent = { name: string; orientation: Direction }
     type EntityMovedEvent = { entityId: EntityId; newPosition: Point }
-    type BalloonColoredEvent = { entityId: EntityId; color: InkColor }
+    type BalloonColoredEvent = { entityId: EntityId; inkPosition: Point; color: InkColor }
     type ButtonPressedEvent = { position: Point }
     type ButtonReleasedEvent = { position: Point }
     type GateOpenedEvent = { position: Point }

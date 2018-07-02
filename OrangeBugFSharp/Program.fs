@@ -5,18 +5,12 @@ module Program =
     open System
     open System.Text
     open GameMap
-    open GameMapTypes
     open TilesEntities
     open IntentsEvents
     open OrangeBug
 
     let runGame() =
-        let mutable map =
-            GameMap.create 8 6
-            |> updateTile (Point.create 4 4) (ButtonTile false)
-            |> updateTile (Point.create 5 4) (GateTile { isOpen = false; triggerPosition = Point.create 4 4 })
-            |> updateTile (Point.create 6 5) (GateTile { isOpen = true; triggerPosition = Point.create 4 4 })
-            |> spawnEntity (Point.create 3 2) BoxEntity
+        let mutable map = SampleMaps.createInitialMap()
 
         Console.OutputEncoding <- Encoding.UTF8
 

@@ -41,6 +41,7 @@ module GameMapTypes =
     type MapAccessor = {
         getAt: Point -> TileInfo
         getEntity: EntityId -> Point * Entity
+        hasEntity: EntityId -> bool
         getPlayerId: string -> EntityId
         getPositionsDependentOn: Point -> Point Set
     }

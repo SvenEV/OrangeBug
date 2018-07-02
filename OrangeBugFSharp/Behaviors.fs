@@ -13,7 +13,7 @@ module Behaviors =
     type TileBehavior = {
         tryAttachEntity: IntentContext -> AttachEntityToTileIntent -> IntentContext
         tryDetachEntity: IntentContext -> DetachEntityFromTileIntent -> IntentContext
-        update: IntentContext -> UpdateAfterDependencyChangedIntent -> IntentContext
+        update: IntentContext -> UpdateTileIntent -> IntentContext
         getDependencies: Tile -> MapDependency list
     }
 
@@ -43,8 +43,43 @@ module Behaviors =
     }
 
     let ButtonTileBehavior = {
-        tryAttachEntity = fun map args -> map.accept [ ButtonPressedEvent { position = args.position } ]
-        tryDetachEntity = fun map args -> map.accept [ ButtonReleasedEvent { position = args.position } ]
+        tryAttachEntity = fun ctx intent -> ctx.accept [ ButtonPressedEvent { position = intent.position } ]
+        tryDetachEntity = fun ctx intent -> ctx.accept [ ButtonReleasedEvent { position = intent.position } ]
+        update = justAccept
+        getDependencies = zeroDependencies
+    }
+
+    let InkTileBehavior = {
+        tryAttachEntity = fun context intent ->
+            let (InkTile inkColor) = (context.map.getAt intent.position).tile
+            let _, entity = context.map.getEntity intent.entityToAttach
+            match entity with
+            | BalloonEntity color ->
+                context.accept [
+                    BalloonColoredEvent { 
+                        entityId = intent.entityToAttach
+                        inkPosition = intent.position
+                        color = inkColor
+                    }
+                ]
+            | _ -> context.accept []
+
+        tryDetachEntity = justAccept
+        update = justAccept
+        getDependencies = zeroDependencies
+    }
+
+    let PinTileBehavior = {
+        tryAttachEntity = fun context intent ->
+            let (PinTile pinColor) = (context.map.getAt intent.position).tile
+            let _, entity = context.map.getEntity intent.entityToAttach
+            match entity with
+            | BalloonEntity color when color = pinColor ->
+                context.accept [ BalloonPoppedEvent intent.entityToAttach; ]
+            | PlayerEntity _ -> context.accept []
+            | _ -> context.reject []
+
+        tryDetachEntity = justAccept
         update = justAccept
         getDependencies = zeroDependencies
     }
@@ -56,16 +91,16 @@ module Behaviors =
             | true -> PathTileBehavior.tryAttachEntity context intent
             | false -> WallTileBehavior.tryAttachEntity context intent
 
-        tryDetachEntity = fun context intent ->
-            // If gate still open but button not pressed, close gate
-            let tileInfo = (context.map.getAt intent.position)
-            let (GateTile gate) = tileInfo.tile
-            let gateState = gate.isOpen
-            let (ButtonTile buttonState) = (context.map.getAt gate.triggerPosition).tile
-            context.accept
-                (match gateState, buttonState with
-                | true, false -> [ GateClosedEvent { position = tileInfo.position } ]
-                | _ -> [])
+        // We must not close the gate here. Consider e.g.
+        // [player on path][box on gate][path] (button for gate is off)
+        // When the player moves right, first the box moves right.
+        // If the gate closes on box detach, the player could not move onto
+        // it to keep it open.
+        // 
+        // TODO: We have to wait until the intent chain is completed and all
+        // affected tiles (and tiles depending on them directly or indirectly) 
+        // are updated
+        tryDetachEntity = justAccept
 
         update = fun context intent ->
             let tileInfo = (context.map.getAt intent.position)
@@ -102,12 +137,16 @@ module Behaviors =
                 })
     }
 
+    let BalloonEntityBehavior = {
+        tryClearTile = BoxEntityBehavior.tryClearTile
+    }
+
     let getTileBehavior tile =
         match tile with
         | PathTile _ -> PathTileBehavior
         | WallTile _ -> WallTileBehavior
-        | InkTile _ -> WallTileBehavior
-        | PinTile _ -> WallTileBehavior
+        | InkTile _ -> InkTileBehavior
+        | PinTile _ -> PinTileBehavior
         | ButtonTile _ -> ButtonTileBehavior
         | GateTile _ -> GateTileBehavior
 
@@ -115,4 +154,4 @@ module Behaviors =
         match entity with
         | PlayerEntity _ -> PlayerEntityBehavior
         | BoxEntity _ -> BoxEntityBehavior
-        | BalloonEntity _ -> PlayerEntityBehavior
+        | BalloonEntity _ -> BalloonEntityBehavior

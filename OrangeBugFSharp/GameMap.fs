@@ -44,6 +44,9 @@ module GameMap =
             entityId = tileEntry.entityId
         }
 
+    let hasEntity id map =
+        map.entities.ContainsKey id
+
     let getEntity id map =
         match map.entities.TryFind id with
         | Some entry -> entry.position, entry.entity
@@ -60,6 +63,7 @@ module GameMap =
     let accessor map = {
         getAt = fun p -> getAt p map
         getEntity = fun id -> getEntity id map
+        hasEntity = fun id -> hasEntity id map
         getPlayerId = fun name -> getPlayerId name map
         getPositionsDependentOn = fun pos -> getPositionsDependentOn pos map
     }
@@ -86,9 +90,7 @@ module GameMap =
             | None -> failwithf "updateEntity failed: There is no entity with ID '%O'" id)
         { map with entities = newEntities }
 
-    let spawnEntity position newEntity map =
-        let id = EntityId.create
-            
+    let spawnEntity position id newEntity map =
         let newEntities = map.entities |> updateEntityEntry id (fun entry ->
             match entry with 
             | Some _ -> failwithf "spawnEntity failed: There is already an entity with ID '%O'" id
@@ -144,18 +146,18 @@ module GameMap =
         | TileUpdateEffect e -> map |> updateTile e.position e.tile
         | EntityUpdateEffect e -> map |> updateEntity e.entityId e.entity
         | EntityMoveEffect e -> map |> moveEntity e.newPosition e.entityId
-        | EntitySpawnEffect e -> map |> spawnEntity e.position e.entity
+        | EntitySpawnEffect e -> map |> spawnEntity e.position e.entityId e.entity
         | EntityDespawnEffect e -> map |> despawnEntity e.entityId
         | SoundEffect e -> map
 
-    let rec applyEvent (map: GameMap) event =
+    let applyEvent (map: GameMap) event =
         let effects = Effects.eventToEffects (accessor map) event
         List.fold applyEffect map effects
 
     
     // Intent helpers
 
-    and accept context events =
+    let rec accept context events =
         let newMap = events |> Seq.fold applyEvent context.mapState
         createIntentContext newMap (context.emittedEvents @ events) IntentAccepted
 

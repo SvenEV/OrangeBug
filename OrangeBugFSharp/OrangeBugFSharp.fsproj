@@ -17,6 +17,7 @@
     <Compile Include="GameMap.fs" />
     <Compile Include="Rendering.fs" />
     <Compile Include="Serialization.fs" />
+    <Compile Include="SampleMaps.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

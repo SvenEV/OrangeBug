@@ -58,7 +58,6 @@ class MeshFactory {
         this.meshGenerators.PathTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Path"))
         this.meshGenerators.WallTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Wall"))
         this.meshGenerators.ButtonTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Button"))
-        this.meshGenerators.GateTile = () => new Mesh(this.geometries.Plane, this.getMaterial("DummyWall"))
         this.meshGenerators.BoxEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("Box"))
         this.meshGenerators.PlayerEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("PlayerRight"))
     }
@@ -77,13 +76,26 @@ class MeshFactory {
     static getMesh(tileOrEntity: Tile | Entity): Mesh {
         switch (tileOrEntity.$type) {
             // special cases first (mesh depending on tile/entity state)
-            case "GateTile":
+            case "GateTile": {
                 return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.state.isOpen
                     ? "DummyWallRemoved"
                     : "DummyWall"))
+            }
+
+            case "InkTile": {
+                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.color + "Ink"))
+            }
+
+            case "PinTile": {
+                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.color + "Pool"))
+            }
+
+            case "BalloonEntity": {
+                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.color + "Ball"))
+            }
 
             // simple cases (mesh only depending on tile/entity type)
-            default:
+            default: {
                 let meshGenerator = this.meshGenerators[tileOrEntity.$type]
                 if (!meshGenerator)
                     meshGenerator = this.meshGenerators.Default
@@ -92,6 +104,7 @@ class MeshFactory {
                 mesh.castShadow = true
                 mesh.receiveShadow = true
                 return mesh;
+            }
         }
     }
 }
@@ -174,7 +187,7 @@ class GameMapSceneInfo {
         this.size = initialMap.size
 
         this.tiles = initialMap.tiles.map((tile, i) => new TileVisual(tile,
-            new Point(i % initialMap.size.x, ~~(i / initialMap.size.x)))),
+            new Point(i % initialMap.size.x, ~~(i / initialMap.size.x))))
 
         this.entities = initialMap.entities.map(e => {
             return {
@@ -257,26 +270,49 @@ export class GameScene {
     handleEffects(effects: Effect[]) {
         effects.forEach(async effect => {
             switch (effect["$type"]) {
-                case "TileUpdateEffect":
+                case "TileUpdateEffect": {
                     let tileVisual = this.mapSceneInfo.getTileAt(effect.props.position)
                     tileVisual.tile = effect.props.tile
                     break
+                }
 
-                case "EntityUpdateEffect":
+                case "EntitySpawnEffect": {
+                    let entity = effect.props.entity
+                    let position = effect.props.position
+                    let visual = new EntityVisual(entity, position)
+                    this.mapSceneInfo.entities.push({ key: effect.props.entityId, value: visual })
+                    this.scene.add(visual)
+                    break
+                }
+
+                case "EntityDespawnEffect": {
+                    let i = this.mapSceneInfo.entities.findIndex((e, i) => e.key.id === effect.props.entityId.id)
+                    if (i != -1) {
+                        let visual = this.mapSceneInfo.entities[i]
+                        this.mapSceneInfo.entities.splice(i, 1)
+                        this.scene.remove(visual.value)
+                    }
+                    break
+                }
+
+                case "EntityUpdateEffect": {
                     let entityVisual = this.mapSceneInfo.getEntity(effect.props.entityId)
-                    entityVisual.value.entity = effect.props.entity    
+                    entityVisual.value.entity = effect.props.entity
                     break
+                }
 
-                case "EntityMoveEffect":
-                    let entityVisual2 = this.mapSceneInfo.getEntity(effect.props.entityId)
-                    entityVisual2.value.mapPosition = effect.props.newPosition
+                case "EntityMoveEffect": {
+                    let entityVisual = this.mapSceneInfo.getEntity(effect.props.entityId)
+                    entityVisual.value.mapPosition = effect.props.newPosition
                     break
+                }
 
-                case "SoundEffect":
+                case "SoundEffect": {
                     let sound = await GameAssets.getSoundAsync("click")
                     if (sound)
                         sound.play()
                     break
+                }
             }
         }) 
     }
