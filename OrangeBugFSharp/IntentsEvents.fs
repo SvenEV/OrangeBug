@@ -84,9 +84,9 @@ module IntentsEvents =
             acceptIntent: IntentContext -> Event list -> IntentContext
             rejectIntent: IntentContext -> Event list -> IntentContext
         }
-        member this.handleIntent = this.doHandleIntent this
-        member this.accept = this.acceptIntent this
-        member this.reject = this.rejectIntent this
+        member this.HandleIntent = this.doHandleIntent this
+        member this.Accept = this.acceptIntent this
+        member this.Reject = this.rejectIntent this
 
     let bind handleNextIntent prevResult =
         match prevResult.intentResult with

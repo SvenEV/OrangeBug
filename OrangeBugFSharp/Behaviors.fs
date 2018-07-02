@@ -21,8 +21,8 @@ module Behaviors =
         tryClearTile: IntentContext -> ClearEntityFromTileIntent -> IntentContext
     }
     
-    let justAccept (context: IntentContext) _ = context.accept []
-    let justReject (context: IntentContext) _ = context.reject []
+    let justAccept (context: IntentContext) _ = context.Accept []
+    let justReject (context: IntentContext) _ = context.Reject []
     let zeroDependencies _ = []
     
 
@@ -43,8 +43,8 @@ module Behaviors =
     }
 
     let ButtonTileBehavior = {
-        tryAttachEntity = fun ctx intent -> ctx.accept [ ButtonPressedEvent { position = intent.position } ]
-        tryDetachEntity = fun ctx intent -> ctx.accept [ ButtonReleasedEvent { position = intent.position } ]
+        tryAttachEntity = fun ctx intent -> ctx.Accept [ ButtonPressedEvent { position = intent.position } ]
+        tryDetachEntity = fun ctx intent -> ctx.Accept [ ButtonReleasedEvent { position = intent.position } ]
         update = justAccept
         getDependencies = zeroDependencies
     }
@@ -54,15 +54,15 @@ module Behaviors =
             let (InkTile inkColor) = (context.map.getAt intent.position).tile
             let _, entity = context.map.getEntity intent.entityToAttach
             match entity with
-            | BalloonEntity color ->
-                context.accept [
+            | BalloonEntity _ ->
+                context.Accept [
                     BalloonColoredEvent { 
                         entityId = intent.entityToAttach
                         inkPosition = intent.position
                         color = inkColor
                     }
                 ]
-            | _ -> context.accept []
+            | _ -> context.Accept []
 
         tryDetachEntity = justAccept
         update = justAccept
@@ -75,9 +75,9 @@ module Behaviors =
             let _, entity = context.map.getEntity intent.entityToAttach
             match entity with
             | BalloonEntity color when color = pinColor ->
-                context.accept [ BalloonPoppedEvent intent.entityToAttach; ]
-            | PlayerEntity _ -> context.accept []
-            | _ -> context.reject []
+                context.Accept [ BalloonPoppedEvent intent.entityToAttach; ]
+            | PlayerEntity _ -> context.Accept []
+            | _ -> context.Reject []
 
         tryDetachEntity = justAccept
         update = justAccept
@@ -107,7 +107,7 @@ module Behaviors =
             let (GateTile gate) = tileInfo.tile
             let gateState = gate.isOpen
             let (ButtonTile buttonState) = (context.map.getAt gate.triggerPosition).tile
-            context.accept
+            context.Accept
                 (match gateState, buttonState, tileInfo.entityId with
                 | false, true, None -> [ GateOpenedEvent { position = tileInfo.position } ]
                 | true, false, None -> [ GateClosedEvent { position = tileInfo.position } ]
@@ -128,10 +128,10 @@ module Behaviors =
     let BoxEntityBehavior = {
         tryClearTile = fun context intent ->
             match intent.suggestedPushDirection with
-            | None -> context.reject [] // box can't just disappear without moving somewhere
+            | None -> context.Reject [] // box can't just disappear without moving somewhere
             | Some dir ->
                 let position, _ = context.map.getEntity intent.entityId
-                context.handleIntent (MoveEntityIntent {
+                context.HandleIntent (MoveEntityIntent {
                     entityId = intent.entityId
                     newPosition = position + dir.asPoint
                 })
