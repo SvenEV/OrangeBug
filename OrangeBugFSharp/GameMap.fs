@@ -161,9 +161,8 @@ module GameMap =
         let newMap = events |> Seq.fold applyEvent context.mapState
         createIntentContext newMap (context.emittedEvents @ events) IntentAccepted
 
-    and private reject context events =
-        let newMap = events |> Seq.fold applyEvent context.mapState
-        createIntentContext newMap (context.emittedEvents @ events) IntentRejected
+    and private reject context =
+        createIntentContext context.mapState context.emittedEvents IntentRejected
 
     and private createIntentContext map events intentResult = {
         mapState = map
@@ -183,19 +182,19 @@ module GameMap =
         let doIntent (ctx: IntentContext) =
             ctx.HandleIntent intent
 
-        let updateAffectedTiles (ctx: IntentContext) =
-            let effects = ctx.emittedEvents |> Seq.collect (eventToEffects ctx.map)
-            let points = effects |> Seq.collect (function
-                | TileUpdateEffect e -> [ e.position ]
-                | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ] // TODO: hm...
-                )
+        //let updateAffectedTiles (ctx: IntentContext) =
+        //    let effects = ctx.emittedEvents |> Seq.collect (eventToEffects ctx.map)
+        //    let points = effects |> Seq.collect (function
+        //        | TileUpdateEffect e -> [ e.position ]
+        //        | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ] // TODO: hm...
+        //        )
 
-            // TODO: Analyze effects to determine affected positions on the map
-            ctx.Accept []
+        //    // TODO: Analyze effects to determine affected positions on the map
+        //    ctx.Accept []
 
         (IntentContext.Create map)
             |> doIntent
-            >>= updateAffectedTiles
+            //>>= updateAffectedTiles
 
     type GameMap with
         static member Create width height =

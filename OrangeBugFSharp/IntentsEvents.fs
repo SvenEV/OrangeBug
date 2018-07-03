@@ -82,15 +82,42 @@ module IntentsEvents =
 
             doHandleIntent: IntentContext -> Intent -> IntentContext
             acceptIntent: IntentContext -> Event list -> IntentContext
-            rejectIntent: IntentContext -> Event list -> IntentContext
+            rejectIntent: IntentContext -> IntentContext
         }
         member this.HandleIntent = this.doHandleIntent this
         member this.Accept = this.acceptIntent this
         member this.Reject = this.rejectIntent this
 
-    let bind handleNextIntent prevResult =
-        match prevResult.intentResult with
-        | IntentRejected -> prevResult // if previous intent failed, don't handle next intent (fail early)
-        | IntentAccepted -> handleNextIntent prevResult
+    let composeIndependent leftHandler rightHandler inContext =
+        if inContext.intentResult = IntentRejected then
+            failwithf "composeIndependent (=||=>) failed: Incoming context must not be rejected"
+
+        let leftResult = leftHandler inContext
+
+        match leftResult.intentResult with
+        | IntentRejected ->
+            // if left failed, discard its changes & handle right with previous context
+            let rightResult = rightHandler inContext
+            match rightResult.intentResult with
+            | IntentRejected -> inContext
+            | IntentAccepted -> rightResult
+        | IntentAccepted ->
+            // if left succeeded, use its result as input for the next intent
+            let rightResult = rightHandler leftResult
+            match rightResult.intentResult with
+            | IntentRejected -> leftResult
+            | IntentAccepted -> rightResult
     
-    let (>>=) prevResult handleNextIntent = bind handleNextIntent prevResult
+    let composeDependent leftHandler rightHandler inContext =
+        match inContext.intentResult with
+        | IntentRejected -> inContext
+        | IntentAccepted ->
+            let leftResult = leftHandler inContext
+            match leftResult.intentResult with
+            | IntentRejected -> leftResult // if left intent failed, don't handle right intent
+            | IntentAccepted -> rightHandler leftResult
+
+    let (=||=>) a b = composeIndependent a b
+    let (=&&=>) a b = composeDependent a b
+
+    

@@ -22,7 +22,7 @@ module Behaviors =
     }
     
     let justAccept (context: IntentContext) _ = context.Accept []
-    let justReject (context: IntentContext) _ = context.Reject []
+    let justReject (context: IntentContext) _ = context.Reject
     let zeroDependencies _ = []
     
 
@@ -77,7 +77,7 @@ module Behaviors =
             | BalloonEntity color when color = pinColor ->
                 context.Accept [ BalloonPoppedEvent intent.entityToAttach; ]
             | PlayerEntity _ -> context.Accept []
-            | _ -> context.Reject []
+            | _ -> context.Reject
 
         tryDetachEntity = justAccept
         update = justAccept
@@ -128,7 +128,7 @@ module Behaviors =
     let BoxEntityBehavior = {
         tryClearTile = fun context intent ->
             match intent.suggestedPushDirection with
-            | None -> context.Reject [] // box can't just disappear without moving somewhere
+            | None -> context.Reject // box can't just disappear without moving somewhere
             | Some dir ->
                 let position, _ = context.map.getEntity intent.entityId
                 context.HandleIntent (MoveEntityIntent {

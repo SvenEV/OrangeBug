@@ -23,14 +23,17 @@ module Gameplay =
         | MovePlayerIntent intent ->
             let playerId = context.map.getPlayerId intent.name
             let playerPos, _ = context.map.getEntity playerId
-            let rotateEvent = PlayerRotatedEvent { name = intent.name; orientation = intent.direction }
-            let subIntent = context.HandleIntent (MoveEntityIntent {
-                entityId = playerId;
-                newPosition = playerPos + intent.direction.asPoint
-            })
-            match subIntent.intentResult with
-            | IntentAccepted -> subIntent.Accept [ rotateEvent ]
-            | IntentRejected -> subIntent.Reject [ rotateEvent ]
+            
+            let rotatePlayer (ctx: IntentContext) =
+                ctx.Accept [ PlayerRotatedEvent { name = intent.name; orientation = intent.direction } ]
+
+            let movePlayer (ctx: IntentContext) =
+                ctx.HandleIntent (MoveEntityIntent {
+                    entityId = playerId;
+                    newPosition = playerPos + intent.direction.asPoint
+                })
+            
+            context |> (rotatePlayer =||=> movePlayer)
 
         | MoveEntityIntent intent ->
             let oldPosition, _ = context.map.getEntity intent.entityId
@@ -79,14 +82,14 @@ module Gameplay =
             let updateTargetDependentTiles (ctx: IntentContext) =
                 ctx.HandleIntent (UpdateDependentTilesIntent { position = intent.newPosition })
 
-            context |> clearTarget
-                >>= detachFromSource
-                >>= attachToTarget
-                >>= emitEvent
-                >>= updateSource
-                >>= updateTarget
-                >>= updateSourceDependentTiles
-                >>= updateTargetDependentTiles
+            context |> (clearTarget
+                =&&=> detachFromSource
+                =&&=> attachToTarget
+                =&&=> emitEvent
+                =&&=> updateSource
+                =&&=> updateTarget
+                =&&=> updateSourceDependentTiles
+                =&&=> updateTargetDependentTiles)
 
         | ClearEntityFromTileIntent intent ->
             let _, entity = context.map.getEntity intent.entityId
