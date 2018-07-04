@@ -3,18 +3,10 @@
 module Gameplay =
     open IntentsEvents
     open Behaviors
+    open Effects
 
-    let handleIntent context intent =
+    let private handleIntent context intent =
         match intent with
-        | UpdateDependentTilesIntent intent ->
-            let handleDependency (ctx: IntentContext) pos =
-                let (updateResult: IntentContext) = ctx.HandleIntent (UpdateTileIntent { position = pos; })
-                // Failing updates should not fail the whole intent chain
-                updateResult.Accept []
-
-            let dependencies = context.map.getPositionsDependentOn intent.position
-            dependencies |> Set.fold handleDependency (context.Accept [])
-
         | UpdateTileIntent intent ->
             let tileToUpdate = context.map.getAt intent.position
             let behavior = getTileBehavior tileToUpdate.tile
@@ -64,32 +56,16 @@ module Gameplay =
                 match ctx.map.hasEntity intent.entityId with
                 | true ->
                     ctx.Accept [ EntityMovedEvent { 
-                        entityId = intent.entityId
+                        oldPosition = oldPosition
                         newPosition = intent.newPosition
                     } ]
                 | false ->
                     ctx.Accept []
 
-            let updateSource (ctx: IntentContext) =
-                ctx.HandleIntent (UpdateTileIntent { position = oldPosition })
-            
-            let updateTarget (ctx: IntentContext) =
-                ctx.HandleIntent (UpdateTileIntent { position = intent.newPosition })
-
-            let updateSourceDependentTiles (ctx: IntentContext) =
-                ctx.HandleIntent (UpdateDependentTilesIntent { position = oldPosition })
-
-            let updateTargetDependentTiles (ctx: IntentContext) =
-                ctx.HandleIntent (UpdateDependentTilesIntent { position = intent.newPosition })
-
             context |> (clearTarget
                 =&&=> detachFromSource
                 =&&=> attachToTarget
-                =&&=> emitEvent
-                =&&=> updateSource
-                =&&=> updateTarget
-                =&&=> updateSourceDependentTiles
-                =&&=> updateTargetDependentTiles)
+                =&&=> emitEvent)
 
         | ClearEntityFromTileIntent intent ->
             let _, entity = context.map.getEntity intent.entityId
@@ -103,3 +79,79 @@ module Gameplay =
         | DetachEntityFromTileIntent intent ->
             let behavior = (context.map.getAt intent.position).tile |> Behaviors.getTileBehavior
             behavior.tryDetachEntity context { position = intent.position; }
+
+
+     // Intent helpers
+
+    let rec private accept context events =
+        let newMap = events |> Seq.fold GameMap.applyEvent context.mapState
+        createIntentContext newMap (context.emittedEvents @ events) IntentAccepted
+
+    and private reject context =
+        createIntentContext context.mapState context.emittedEvents IntentRejected
+
+    and private createIntentContext map events intentResult = {
+        mapState = map
+        map = GameMap.accessor map
+        emittedEvents = events
+        intentResult = intentResult
+
+        doHandleIntent = handleIntent
+        acceptIntent = accept
+        rejectIntent = reject
+    }
+
+    type IntentContext with
+        static member Create map = createIntentContext map [] IntentAccepted
+
+    let traverseDependenciesInteractively (action: Point -> IntentContext -> IntentContext) context initialPoints =
+        // Not very functional, but works for now. TODO: Use fold and stuff, avoid mutable
+        let mutable bag = Set.ofSeq initialPoints
+        let mutable counter = 0
+        let mutable lastAcceptedIntent = context
+
+        let todoPoints = seq {
+            for p in bag do
+                if lastAcceptedIntent.map.getDependenciesOf p |> Seq.forall (bag.Contains >> not) then
+                    yield p
+        }
+
+        while bag.Count > 0 do
+            if Seq.isEmpty todoPoints || counter > 1000 then
+                failwithf "dependency cycle detected while updating tiles"
+
+            counter <- counter + 1
+
+            let current = Seq.head todoPoints
+            bag <- bag.Remove current
+
+            // TODO: It bugs me that I can't properly use my composeIndependent function
+            let updateResult = action current lastAcceptedIntent
+
+            if updateResult.intentResult = IntentAccepted then
+                bag <- updateResult.map.getPositionsDependentOn current |> Seq.fold (fun b p -> b.Add p) bag
+                lastAcceptedIntent <- updateResult
+            
+        lastAcceptedIntent
+
+    let processIntent intent map =
+        let doIntent (ctx: IntentContext) =
+            ctx.HandleIntent intent
+
+        let updateAffectedTiles (ctx: IntentContext) =
+            let effects = ctx.emittedEvents |> Seq.collect (eventToEffects (GameMap.accessor map))
+            let points =
+                effects
+                |> Seq.collect (function
+                    | TileUpdateEffect e -> [ e.position ]
+                    | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
+                    | EntitySpawnEffect e -> [ e.position ]
+                    | EntityDespawnEffect e -> [ e.position ]
+                    | EntityUpdateEffect _ -> []
+                    | SoundEffect _ -> [])
+                |> Set.ofSeq
+            
+            let updater = traverseDependenciesInteractively (fun p ctx -> ctx.HandleIntent (UpdateTileIntent { position = p }))
+            updater ctx points
+        
+        (IntentContext.Create map) |> (doIntent =&&=> updateAffectedTiles)

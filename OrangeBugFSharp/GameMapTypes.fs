@@ -44,4 +44,5 @@ module GameMapTypes =
         hasEntity: EntityId -> bool
         getPlayerId: string -> EntityId
         getPositionsDependentOn: Point -> Point Set
+        getDependenciesOf: Point -> Point Set
     }

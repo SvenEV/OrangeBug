@@ -25,10 +25,12 @@ module Effects =
 
     type EntityDespawnEffect = {
         entityId: EntityId
+        position: Point
     }
 
     type EntityMoveEffect = {
         entityId: EntityId
+        oldPosition: Point
         newPosition: Point
     }
 
@@ -61,7 +63,8 @@ module Effects =
     let eventToEffects (map: MapAccessor) ev =
         match ev with
         | EntityMovedEvent ev ->
-            [ EntityMoveEffect { entityId = ev.entityId; newPosition = ev.newPosition } ]
+            let entityId = (map.getAt ev.oldPosition).entityId.Value
+            [ EntityMoveEffect { entityId = entityId; oldPosition = ev.oldPosition; newPosition = ev.newPosition } ]
 
         | PlayerRotatedEvent ev ->
             let playerId = map.getPlayerId ev.name
@@ -93,8 +96,9 @@ module Effects =
                 TileUpdateEffect { position = ev.inkPosition; tile = PathTile }
             ]
         | BalloonPoppedEvent entityId ->
+            let (position, _) = map.getEntity entityId
             [
                 SoundEffect { key = "PopBalloon.mp3" }
-                EntityDespawnEffect { entityId = entityId }
+                EntityDespawnEffect { entityId = entityId; position = position }
             ]
 

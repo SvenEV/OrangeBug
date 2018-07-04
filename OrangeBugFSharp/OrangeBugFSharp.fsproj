@@ -13,8 +13,8 @@
     <Compile Include="IntentsEvents.fs" />
     <Compile Include="Behaviors.fs" />
     <Compile Include="Effects.fs" />
-    <Compile Include="Gameplay.fs" />
     <Compile Include="GameMap.fs" />
+    <Compile Include="Gameplay.fs" />
     <Compile Include="Rendering.fs" />
     <Compile Include="Serialization.fs" />
     <Compile Include="SampleMaps.fs" />

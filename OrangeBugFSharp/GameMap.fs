@@ -60,14 +60,20 @@ module GameMap =
         | Some points -> points
         | None -> Set.empty
 
+    let getDependenciesOf position map =
+        match map.dependencies.outEdges.TryFind position with
+        | Some points -> points
+        | None -> Set.empty
+
     let accessor map = {
         getAt = fun p -> getAt p map
         getEntity = fun id -> getEntity id map
         hasEntity = fun id -> hasEntity id map
         getPlayerId = fun name -> getPlayerId name map
         getPositionsDependentOn = fun pos -> getPositionsDependentOn pos map
+        getDependenciesOf = fun pos -> getDependenciesOf pos map
     }
-
+    
     
     // Map mutation functions
 
@@ -107,37 +113,42 @@ module GameMap =
 
         { map with tiles = newTiles; entities = newEntities; players = newPlayers }
 
-    let despawnEntity id map =
-        let entry = map.entities.[id]
-            
+    let despawnEntity position map =
+        let entry = map.tiles.Find position
+
+        let entityId =
+            match entry.entityId with
+            | Some id -> id
+            | None -> failwithf "despawnEntity failed: There is no entity at position '%O'" position
+
         let newPlayers = 
-            match entry.entity with
+            match map.entities.[entityId].entity with
             | PlayerEntity player -> map.players.Remove player.name
             | _ -> map.players
 
-        let newEntities = map.entities |> updateEntityEntry id (fun entry ->
-            match entry with
-            | Some _ -> None
-            | None -> failwithf "despawnEntity failed: There is no entity with ID '%O'" id)
-
-        let newTiles =
-            map.tiles 
-            |> updateTileEntry entry.position (fun e -> TileEntry.WithoutEntity e.tile)
-
-        { map with tiles = newTiles; entities = newEntities; players = newPlayers }
-        
-    let moveEntity newPosition id map =
-        let entry = map.entities.[id]
-
-        let newEntities = map.entities |> updateEntityEntry id (fun entry ->
-            match entry with
-            | Some entry -> Some (EntityEntry.Create newPosition entry.entity)
-            | None -> failwithf "moveEntity failed: There is no entity with ID '%O'" id)
+        let newEntities = map.entities |> updateEntityEntry entityId (fun _ -> None)
 
         let newTiles =
             map.tiles
-            |> updateTileEntry entry.position (fun e -> TileEntry.WithoutEntity e.tile)
-            |> updateTileEntry newPosition (fun e -> TileEntry.WithEntity id e.tile)
+            |> updateTileEntry position (fun e -> TileEntry.WithoutEntity e.tile)
+
+        { map with tiles = newTiles; entities = newEntities; players = newPlayers }
+        
+    let moveEntity oldPosition newPosition map =
+        let entry = map.tiles.Find oldPosition
+
+        let entityId =
+            match entry.entityId with
+            | Some id -> id
+            | None -> failwithf "moveEntity failed: There is no entity at position '%O'" oldPosition
+
+        let newEntities = map.entities |> updateEntityEntry entityId (fun entry ->
+            Some (EntityEntry.Create newPosition entry.Value.entity))
+
+        let newTiles =
+            map.tiles
+            |> updateTileEntry oldPosition (fun e -> TileEntry.WithoutEntity e.tile)
+            |> updateTileEntry newPosition (fun e -> TileEntry.WithEntity entityId e.tile)
 
         { map with tiles = newTiles; entities = newEntities }
 
@@ -145,56 +156,14 @@ module GameMap =
         match effect with
         | TileUpdateEffect e -> map |> updateTile e.position e.tile
         | EntityUpdateEffect e -> map |> updateEntity e.entityId e.entity
-        | EntityMoveEffect e -> map |> moveEntity e.newPosition e.entityId
+        | EntityMoveEffect e -> map |> moveEntity e.oldPosition e.newPosition
         | EntitySpawnEffect e -> map |> spawnEntity e.position e.entityId e.entity
-        | EntityDespawnEffect e -> map |> despawnEntity e.entityId
+        | EntityDespawnEffect e -> map |> despawnEntity e.position
         | SoundEffect _ -> map
 
     let applyEvent (map: GameMap) event =
         let effects = Effects.eventToEffects (accessor map) event
         List.fold applyEffect map effects
-
-    
-    // Intent helpers
-
-    let rec private accept context events =
-        let newMap = events |> Seq.fold applyEvent context.mapState
-        createIntentContext newMap (context.emittedEvents @ events) IntentAccepted
-
-    and private reject context =
-        createIntentContext context.mapState context.emittedEvents IntentRejected
-
-    and private createIntentContext map events intentResult = {
-        mapState = map
-        map = accessor map
-        emittedEvents = events
-        intentResult = intentResult
-
-        doHandleIntent = Gameplay.handleIntent
-        acceptIntent = accept
-        rejectIntent = reject
-    }
-
-    type IntentContext with
-        static member Create map = createIntentContext map [] IntentAccepted
-
-    let processIntent intent map =
-        let doIntent (ctx: IntentContext) =
-            ctx.HandleIntent intent
-
-        //let updateAffectedTiles (ctx: IntentContext) =
-        //    let effects = ctx.emittedEvents |> Seq.collect (eventToEffects ctx.map)
-        //    let points = effects |> Seq.collect (function
-        //        | TileUpdateEffect e -> [ e.position ]
-        //        | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ] // TODO: hm...
-        //        )
-
-        //    // TODO: Analyze effects to determine affected positions on the map
-        //    ctx.Accept []
-
-        (IntentContext.Create map)
-            |> doIntent
-            //>>= updateAffectedTiles
 
     type GameMap with
         static member Create width height =

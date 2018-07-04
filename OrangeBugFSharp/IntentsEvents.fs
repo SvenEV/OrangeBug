@@ -6,10 +6,6 @@ module IntentsEvents =
 
     // Intents
 
-    type UpdateDependentTilesIntent = {
-        position: Point
-    }
-
     type UpdateTileIntent = {
         position: Point
     }
@@ -39,7 +35,6 @@ module IntentsEvents =
     }
 
     type Intent =
-        | UpdateDependentTilesIntent of UpdateDependentTilesIntent
         | UpdateTileIntent of UpdateTileIntent
         | MovePlayerIntent of MovePlayerIntent
         | MoveEntityIntent of MoveEntityIntent
@@ -51,7 +46,7 @@ module IntentsEvents =
     // Events
     
     type PlayerRotatedEvent = { name: string; orientation: Direction }
-    type EntityMovedEvent = { entityId: EntityId; newPosition: Point }
+    type EntityMovedEvent = { oldPosition: Point; newPosition: Point }
     type BalloonColoredEvent = { entityId: EntityId; inkPosition: Point; color: InkColor }
     type ButtonPressedEvent = { position: Point }
     type ButtonReleasedEvent = { position: Point }
@@ -119,5 +114,3 @@ module IntentsEvents =
 
     let (=||=>) a b = composeIndependent a b
     let (=&&=>) a b = composeDependent a b
-
-    
