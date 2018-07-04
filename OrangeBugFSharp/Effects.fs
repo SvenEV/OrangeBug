@@ -53,26 +53,23 @@ module Effects =
     //
     // "Events" are high-level changes to the game world. They are often specific
     //          to certain tile or entity types. Events are emitted when intents
-    //          (fully or partially) succeed. Each event translates to one or
-    //          more effects.
+    //          (fully or partially) succeed. Each event translates to one or more
+    //          effects purely (i.e. without querying on the map state).
     //
     // "Effects" are low-level changes to the game world. Think of them as instructions
     //           that can be directly handled by the core game engine. Examples
     //           include updating a tile or entity state, or playing a sound effect.
 
-    let eventToEffects (map: MapAccessor) ev =
+    let eventToEffects ev =
         match ev with
         | EntityMovedEvent ev ->
-            let entityId = (map.getAt ev.oldPosition).entityId.Value
-            [ EntityMoveEffect { entityId = entityId; oldPosition = ev.oldPosition; newPosition = ev.newPosition } ]
+            [ EntityMoveEffect { entityId = ev.entityId; oldPosition = ev.oldPosition; newPosition = ev.newPosition } ]
 
         | PlayerRotatedEvent ev ->
-            let playerId = map.getPlayerId ev.name
-            let _, (PlayerEntity playerState) = map.getEntity playerId
-            let newState = { playerState with orientation = ev.orientation }
+            let newState = { ev.player with orientation = ev.orientation }
             [
                 SoundEffect { key = "RotatePlayer.mp3" }
-                EntityUpdateEffect { entityId = playerId; entity = PlayerEntity newState }
+                EntityUpdateEffect { entityId = ev.entityId; entity = PlayerEntity newState }
             ]
         
         | ButtonPressedEvent ev ->
@@ -82,12 +79,10 @@ module Effects =
             [ TileUpdateEffect { position = ev.position; tile = ButtonTile false }]
 
         | GateOpenedEvent ev ->
-            let (GateTile gate) = (map.getAt ev.position).tile
-            [ TileUpdateEffect { position = ev.position; tile = GateTile { gate with isOpen = true } } ]
+            [ TileUpdateEffect { position = ev.position; tile = GateTile { ev.gate with isOpen = true } } ]
 
         | GateClosedEvent ev ->
-            let (GateTile gate) = (map.getAt ev.position).tile
-            [ TileUpdateEffect { position = ev.position; tile = GateTile { gate with isOpen = false } } ]
+            [ TileUpdateEffect { position = ev.position; tile = GateTile { ev.gate with isOpen = false } } ]
 
         | BalloonColoredEvent ev ->
             [
@@ -95,10 +90,9 @@ module Effects =
                 EntityUpdateEffect { entityId = ev.entityId; entity = BalloonEntity ev.color }
                 TileUpdateEffect { position = ev.inkPosition; tile = PathTile }
             ]
-        | BalloonPoppedEvent entityId ->
-            let (position, _) = map.getEntity entityId
+        | BalloonPoppedEvent ev ->
             [
                 SoundEffect { key = "PopBalloon.mp3" }
-                EntityDespawnEffect { entityId = entityId; position = position }
+                EntityDespawnEffect { entityId = ev.entityId; position = ev.pinPosition }
             ]
 

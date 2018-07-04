@@ -25,6 +25,7 @@ module TilesEntities =
         | PinTile of color: InkColor
         | ButtonTile of isPressed: bool
         | GateTile of state: GateTile
+        | TeleporterTile of targetPosition: Point
     
 
     // Entities

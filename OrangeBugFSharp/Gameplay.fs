@@ -4,6 +4,7 @@ module Gameplay =
     open IntentsEvents
     open Behaviors
     open Effects
+    open TilesEntities
 
     let private handleIntent context intent =
         match intent with
@@ -14,10 +15,15 @@ module Gameplay =
 
         | MovePlayerIntent intent ->
             let playerId = context.map.getPlayerId intent.name
-            let playerPos, _ = context.map.getEntity playerId
+            let playerPos, (PlayerEntity playerState) = context.map.getEntity playerId
             
             let rotatePlayer (ctx: IntentContext) =
-                ctx.Accept [ PlayerRotatedEvent { name = intent.name; orientation = intent.direction } ]
+                ctx.Accept [ PlayerRotatedEvent {
+                    name = intent.name
+                    entityId = playerId
+                    player = playerState
+                    orientation = intent.direction
+                } ]
 
             let movePlayer (ctx: IntentContext) =
                 ctx.HandleIntent (MoveEntityIntent {
@@ -61,6 +67,7 @@ module Gameplay =
                 match ctx.map.hasEntity intent.entityId with
                 | true ->
                     ctx.Accept [ EntityMovedEvent { 
+                        entityId = intent.entityId
                         oldPosition = oldPosition
                         newPosition = intent.newPosition
                     } ]
@@ -90,7 +97,7 @@ module Gameplay =
      // Intent helpers
 
     let rec private accept context events =
-        let newMap = events |> Seq.fold GameMap.applyEvent context.mapState
+        let newMap = events |> Seq.collect eventToEffects |> Seq.fold GameMap.applyEffect context.mapState
         createIntentContext newMap (context.emittedEvents @ events) IntentAccepted
 
     and private reject context =
@@ -135,6 +142,7 @@ module Gameplay =
             let updateResult = action current lastAcceptedIntent
 
             if updateResult.intentResult = IntentAccepted then
+                // TODO: Newly affected tiles are not added to bag here
                 bag <- updateResult.map.getPositionsDependentOn current |> Seq.fold (fun b p -> b.Add p) bag
                 lastAcceptedIntent <- updateResult
             
@@ -145,7 +153,7 @@ module Gameplay =
             ctx.HandleIntent intent
 
         let updateAffectedTiles (ctx: IntentContext) =
-            let effects = ctx.emittedEvents |> Seq.collect (eventToEffects (GameMap.accessor map))
+            let effects = ctx.emittedEvents |> Seq.collect eventToEffects
             let points =
                 effects
                 |> Seq.collect (function

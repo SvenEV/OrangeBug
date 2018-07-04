@@ -47,13 +47,14 @@ module IntentsEvents =
 
     // Events
     
-    type PlayerRotatedEvent = { name: string; orientation: Direction }
-    type EntityMovedEvent = { oldPosition: Point; newPosition: Point }
-    type BalloonColoredEvent = { entityId: EntityId; inkPosition: Point; color: InkColor }
+    type PlayerRotatedEvent = { name: string; entityId: EntityId; player: PlayerEntity; orientation: Direction; }
+    type EntityMovedEvent = { entityId: EntityId; oldPosition: Point; newPosition: Point }
     type ButtonPressedEvent = { position: Point }
     type ButtonReleasedEvent = { position: Point }
-    type GateOpenedEvent = { position: Point }
-    type GateClosedEvent = { position: Point }
+    type GateOpenedEvent = { position: Point; gate: GateTile }
+    type GateClosedEvent = { position: Point; gate: GateTile }
+    type BalloonColoredEvent = { entityId: EntityId; inkPosition: Point; color: InkColor }
+    type BalloonPoppedEvent = { entityId: EntityId; pinPosition: Point }
 
     type Event =
         | PlayerRotatedEvent of PlayerRotatedEvent
@@ -63,7 +64,7 @@ module IntentsEvents =
         | GateOpenedEvent of GateOpenedEvent
         | GateClosedEvent of GateClosedEvent
         | BalloonColoredEvent of BalloonColoredEvent
-        | BalloonPoppedEvent of EntityId
+        | BalloonPoppedEvent of BalloonPoppedEvent
 
 
     // Infrastructure

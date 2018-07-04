@@ -24,7 +24,7 @@ type GameHub() =
         | Some direction ->
             let intent = MovePlayerIntent { name = "Player"; direction = direction }
             let result = session.map |> Gameplay.processIntent intent
-            let effects = List.collect (Effects.eventToEffects (accessor session.map)) result.emittedEvents
+            let effects = List.collect Effects.eventToEffects result.emittedEvents
             session.map <- result.mapState
             do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEffects", effects))
     }

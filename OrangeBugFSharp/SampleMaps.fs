@@ -17,3 +17,5 @@ module SampleMaps =
         |> updateTile (Point.create 7 2) (InkTile Green)
         |> updateTile (Point.create 8 2) (PinTile Red)
         |> updateTile (Point.create 8 3) (PinTile Green)
+        |> updateTile (Point.create 10 1) (TeleporterTile (Point.create 10 6))
+        |> updateTile (Point.create 10 6) (TeleporterTile (Point.create 10 2))

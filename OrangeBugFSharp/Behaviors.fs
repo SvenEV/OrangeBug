@@ -75,7 +75,7 @@ module Behaviors =
             let _, entity = context.map.getEntity intent.entityToAttach
             match entity with
             | BalloonEntity color when color = pinColor ->
-                context.Accept [ BalloonPoppedEvent intent.entityToAttach; ]
+                context.Accept [ BalloonPoppedEvent { entityId = intent.entityToAttach; pinPosition = intent.position } ]
             | PlayerEntity _ -> context.Accept []
             | _ -> context.Reject
 
@@ -94,12 +94,8 @@ module Behaviors =
         // We must not close the gate here. Consider e.g.
         // [player on path][box on gate][path] (button for gate is off)
         // When the player moves right, first the box moves right.
-        // If the gate closes on box detach, the player could not move onto
-        // it to keep it open.
-        // 
-        // TODO: We have to wait until the intent chain is completed and all
-        // affected tiles (and tiles depending on them directly or indirectly) 
-        // are updated
+        // If the gate would close on box detach, the player could not move
+        // onto it to keep it open.
         tryDetachEntity = justAccept
 
         update = fun context intent ->
@@ -109,13 +105,30 @@ module Behaviors =
             let (ButtonTile buttonState) = (context.map.getAt gate.triggerPosition).tile
             context.Accept
                 (match gateState, buttonState, tileInfo.entityId with
-                | false, true, None -> [ GateOpenedEvent { position = tileInfo.position } ]
-                | true, false, None -> [ GateClosedEvent { position = tileInfo.position } ]
+                | false, true, None -> [ GateOpenedEvent { gate = gate; position = tileInfo.position } ]
+                | true, false, None -> [ GateClosedEvent { gate = gate; position = tileInfo.position } ]
                 | _ -> [])
    
         getDependencies = fun tile ->
             let (GateTile gate) = tile
             [ AbsoluteMapDependency gate.triggerPosition ]
+    }
+
+    let TeleporterTileBehavior = {
+        tryAttachEntity = justAccept
+        tryDetachEntity = justAccept
+        getDependencies = zeroDependencies
+        update = fun context intent ->
+            let tileEntry = context.map.getAt intent.position
+            let (TeleporterTile targetPosition) = tileEntry.tile
+            match tileEntry.entityId with
+            | None -> context.Accept []
+            | Some entityId ->
+                context.HandleIntent (MoveEntityIntent { 
+                    entityId = entityId
+                    newPosition = targetPosition
+                    force = 1
+                })
     }
     
 
@@ -150,6 +163,7 @@ module Behaviors =
         | PinTile _ -> PinTileBehavior
         | ButtonTile _ -> ButtonTileBehavior
         | GateTile _ -> GateTileBehavior
+        | TeleporterTile _ -> TeleporterTileBehavior
 
     let getEntityBehavior entity =
         match entity with

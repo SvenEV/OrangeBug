@@ -161,10 +161,6 @@ module GameMap =
         | EntityDespawnEffect e -> map |> despawnEntity e.position
         | SoundEffect _ -> map
 
-    let applyEvent (map: GameMap) event =
-        let effects = Effects.eventToEffects (accessor map) event
-        List.fold applyEffect map effects
-
     type GameMap with
         static member Create width height =
             let playerId = EntityId.create
