@@ -23,6 +23,7 @@ module Gameplay =
                 ctx.HandleIntent (MoveEntityIntent {
                     entityId = playerId;
                     newPosition = playerPos + intent.direction.asPoint
+                    force = 2
                 })
             
             context |> (rotatePlayer =||=> movePlayer)
@@ -32,12 +33,16 @@ module Gameplay =
             let target = context.map.getAt intent.newPosition
             let offset = intent.newPosition - oldPosition
 
+            let validateForce (ctx: IntentContext) =
+                if intent.force > 0 then ctx.Accept [] else ctx.Reject
+
             let clearTarget (ctx: IntentContext) =
                 match target.entityId with
                 | Some id ->
                     ctx.HandleIntent (ClearEntityFromTileIntent { 
                         entityId = id
                         suggestedPushDirection = offset.asDirection
+                        force = intent.force - 1
                     })
                 | None -> ctx.Accept []
             
@@ -62,7 +67,8 @@ module Gameplay =
                 | false ->
                     ctx.Accept []
 
-            context |> (clearTarget
+            context |> (validateForce
+                =&&=> clearTarget
                 =&&=> detachFromSource
                 =&&=> attachToTarget
                 =&&=> emitEvent)

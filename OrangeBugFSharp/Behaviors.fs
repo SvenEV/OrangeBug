@@ -134,6 +134,7 @@ module Behaviors =
                 context.HandleIntent (MoveEntityIntent {
                     entityId = intent.entityId
                     newPosition = position + dir.asPoint
+                    force = intent.force
                 })
     }
 

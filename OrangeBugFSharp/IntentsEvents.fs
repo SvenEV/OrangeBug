@@ -18,11 +18,13 @@ module IntentsEvents =
     type MoveEntityIntent = {
         entityId: EntityId
         newPosition: Point
+        force: int // >1 needed for pushing things
     }
 
     type ClearEntityFromTileIntent = {
         entityId: EntityId
         suggestedPushDirection: Direction option
+        force: int
     }
 
     type AttachEntityToTileIntent = {
