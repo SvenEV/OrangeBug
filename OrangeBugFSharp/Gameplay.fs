@@ -9,7 +9,7 @@ module Gameplay =
         | UpdateTileIntent intent ->
             let tileToUpdate = context.map.getAt intent.position
             let behavior = Behavior.getTileBehavior tileToUpdate.tile
-            behavior.update context { position = intent.position }
+            behavior.update { position = intent.position } context
 
         | MovePlayerIntent intent ->
             let playerId = context.map.getPlayerId intent.name
@@ -40,16 +40,6 @@ module Gameplay =
             let validateForce (ctx: IntentContext) =
                 if intent.force > 0 then ctx.Accept [] else ctx.Reject
 
-            let clearTarget (ctx: IntentContext) =
-                match target.entityId with
-                | Some id ->
-                    ctx.HandleIntent (ClearEntityFromTileIntent { 
-                        entityId = id
-                        suggestedPushDirection = offset.asDirection
-                        force = intent.force - 1
-                    })
-                | None -> ctx.Accept []
-            
             let detachFromSource (ctx: IntentContext) =
                 ctx.HandleIntent (DetachEntityFromTileIntent { position = oldPosition })
 
@@ -57,6 +47,8 @@ module Gameplay =
                 ctx.HandleIntent (AttachEntityToTileIntent {
                     position = intent.newPosition
                     entityToAttach = intent.entityId
+                    suggestedPushDirection = offset.asDirection
+                    force = intent.force
                 })
 
             let emitEvent (ctx: IntentContext) =
@@ -73,7 +65,6 @@ module Gameplay =
                     ctx.Accept []
 
             context |> (validateForce
-                =&&=> clearTarget
                 =&&=> detachFromSource
                 =&&=> attachToTarget
                 =&&=> emitEvent)
@@ -81,15 +72,15 @@ module Gameplay =
         | ClearEntityFromTileIntent intent ->
             let _, entity = context.map.getEntity intent.entityId
             let behavior = entity |> Behavior.getEntityBehavior
-            behavior.tryClearTile context intent
+            behavior.tryClearTile intent context
 
         | AttachEntityToTileIntent intent ->
             let behavior = (context.map.getAt intent.position).tile |> Behavior.getTileBehavior
-            behavior.tryAttachEntity context intent
+            behavior.tryAttachEntity intent context
 
         | DetachEntityFromTileIntent intent ->
             let behavior = (context.map.getAt intent.position).tile |> Behavior.getTileBehavior
-            behavior.tryDetachEntity context { position = intent.position; }
+            behavior.tryDetachEntity { position = intent.position; } context
 
 
      // Intent helpers
@@ -115,9 +106,21 @@ module Gameplay =
     type IntentContext with
         static member Create map = createIntentContext map [] IntentAccepted
 
-    let private traverseDependenciesInteractively (action: Point -> IntentContext -> IntentContext) context initialPoints =
+    let private updateAffectedTiles (action: Point -> IntentContext -> IntentContext) context =
+
+        let eventsToAffectedPoints evs =
+            evs
+            |> Seq.collect Effect.eventToEffects
+            |> Seq.collect (function
+                | TileUpdateEffect e -> [ e.position ]
+                | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
+                | EntitySpawnEffect e -> [ e.position ]
+                | EntityDespawnEffect e -> [ e.position ]
+                | EntityUpdateEffect _ -> []
+                | SoundEffect _ -> [])
+
         // Not very functional, but works for now. TODO: Use fold and stuff, avoid mutable
-        let mutable bag = Set.ofSeq initialPoints
+        let mutable bag = eventsToAffectedPoints context.emittedEvents |> Set.ofSeq
         let mutable counter = 0
         let mutable lastAcceptedIntent = context
 
@@ -134,15 +137,21 @@ module Gameplay =
             counter <- counter + 1
 
             let current = Seq.head todoPoints
-            bag <- bag.Remove current
 
             // TODO: It bugs me that I can't properly use my composeIndependent function
             let updateResult = action current lastAcceptedIntent
+            let updateEvents =
+                Set.difference
+                    (Set.ofSeq updateResult.emittedEvents)
+                    (Set.ofSeq lastAcceptedIntent.emittedEvents)
 
             if updateResult.intentResult = IntentAccepted then
-                // TODO: Newly affected tiles are not added to bag here
+                // Add (1) points affected by the tile update, and (2) points depending on the updated point
+                bag <- updateEvents |> eventsToAffectedPoints |> Seq.fold (fun b p -> b.Add p) bag
                 bag <- updateResult.map.getPositionsDependentOn current |> Seq.fold (fun b p -> b.Add p) bag
                 lastAcceptedIntent <- updateResult
+            
+            bag <- bag.Remove current
             
         lastAcceptedIntent
 
@@ -150,18 +159,9 @@ module Gameplay =
         let doIntent (ctx: IntentContext) =
             ctx.HandleIntent intent
 
-        let updateAffectedTiles (ctx: IntentContext) =
-            ctx.emittedEvents
-            |> Seq.collect Effect.eventToEffects
-            |> Seq.collect (function
-                | TileUpdateEffect e -> [ e.position ]
-                | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
-                | EntitySpawnEffect e -> [ e.position ]
-                | EntityDespawnEffect e -> [ e.position ]
-                | EntityUpdateEffect _ -> []
-                | SoundEffect _ -> [])
-            |> traverseDependenciesInteractively
+        let updateTiles (ctx: IntentContext) =
+            updateAffectedTiles 
                 (fun p ctx -> ctx.HandleIntent (UpdateTileIntent { position = p }))
                 ctx
         
-        (IntentContext.Create map) |> (doIntent =&&=> updateAffectedTiles)
+        (IntentContext.Create map) |> (doIntent =&&=> updateTiles)

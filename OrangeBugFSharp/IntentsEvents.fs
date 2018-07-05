@@ -28,6 +28,8 @@ type ClearEntityFromTileIntent = {
 type AttachEntityToTileIntent = {
     position: Point
     entityToAttach: EntityId
+    suggestedPushDirection: Direction option
+    force: int
 }
 
 type DetachEntityFromTileIntent = {

@@ -53,12 +53,13 @@ class MeshFactory {
         this.geometries.Cube = new BoxGeometry(1, 1, 1)
 
         this.materials.Default = new MeshStandardMaterial({ color: 0xff00ff });
-        
+
         this.meshGenerators.Default = () => new Mesh(this.geometries.Plane, this.getMaterial("NoSprite"))
         this.meshGenerators.PathTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Path"))
         this.meshGenerators.WallTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Wall"))
         this.meshGenerators.ButtonTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Button"))
         this.meshGenerators.TeleporterTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Teleport"))
+        this.meshGenerators.CornerTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Corner"))
         this.meshGenerators.BoxEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("Box"))
         this.meshGenerators.PlayerEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("PlayerRight"))
     }
@@ -119,6 +120,17 @@ class TileVisual extends Object3D {
         this.remove(this.children[0])
         this.add(MeshFactory.getMesh(value))
         this._tile = value
+
+        if (value.$type === "CornerTile") {
+            switch (value.orientation) {
+                case "West": this.setRotationFromEuler(new Euler(0, 0, 0)); break;
+                case "North": this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break;
+                case "East": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break;
+                case "South": this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break;
+            }
+        } else {
+            this.setRotationFromEuler(new Euler(0, 0, 0))
+        }
     }
 
     get mapPosition() {
@@ -153,6 +165,8 @@ class EntityVisual extends Object3D {
                 case "South": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break
                 case "West": this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break
             }
+        } else {
+            this.setRotationFromEuler(new Euler(0, 0, 0))
         }
     }
 
@@ -213,7 +227,7 @@ export class GameScene {
 
         GameAssets.initialize(audioListener)
         MeshFactory.initialize()
-        
+
         // init renderer
         this.renderer.setPixelRatio(window.devicePixelRatio)
         this.renderer.shadowMap.enabled = true
@@ -315,6 +329,6 @@ export class GameScene {
                     break
                 }
             }
-        }) 
+        })
     }
 }

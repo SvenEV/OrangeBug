@@ -26,6 +26,7 @@ type Tile =
     | ButtonTile of isPressed: bool
     | GateTile of state: GateTile
     | TeleporterTile of targetPosition: Point
+    | CornerTile of orientation: Direction
     
 
 // Entities
