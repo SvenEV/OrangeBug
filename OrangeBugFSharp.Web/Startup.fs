@@ -1,13 +1,13 @@
-namespace OrangeBugFSharp.Web
+namespace OrangeBug.Web
 
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
-open OrangeBugFSharp.Web.Hubs
 open Newtonsoft.Json
 open OrangeBug.Serialization
+open OrangeBug.Web.Hubs
 
 type Startup private () =
     new (configuration: IConfiguration) as this =

@@ -1,91 +1,90 @@
-﻿namespace OrangeBug
+﻿namespace OrangeBug.Game
 
-module IntentsEvents =
-    open TilesEntities
-    open GameMapTypes
+open OrangeBug
 
-    // Intents
+// Intents
 
-    type UpdateTileIntent = {
-        position: Point
-    }
+type UpdateTileIntent = {
+    position: Point
+}
 
-    type MovePlayerIntent = {
-        name: string
-        direction: Direction
-    }
+type MovePlayerIntent = {
+    name: string
+    direction: Direction
+}
 
-    type MoveEntityIntent = {
-        entityId: EntityId
-        newPosition: Point
-        force: int // >1 needed for pushing things
-    }
+type MoveEntityIntent = {
+    entityId: EntityId
+    newPosition: Point
+    force: int // >1 needed for pushing things
+}
 
-    type ClearEntityFromTileIntent = {
-        entityId: EntityId
-        suggestedPushDirection: Direction option
-        force: int
-    }
+type ClearEntityFromTileIntent = {
+    entityId: EntityId
+    suggestedPushDirection: Direction option
+    force: int
+}
 
-    type AttachEntityToTileIntent = {
-        position: Point
-        entityToAttach: EntityId
-    }
+type AttachEntityToTileIntent = {
+    position: Point
+    entityToAttach: EntityId
+}
 
-    type DetachEntityFromTileIntent = {
-        position: Point
-    }
+type DetachEntityFromTileIntent = {
+    position: Point
+}
 
-    type Intent =
-        | UpdateTileIntent of UpdateTileIntent
-        | MovePlayerIntent of MovePlayerIntent
-        | MoveEntityIntent of MoveEntityIntent
-        | ClearEntityFromTileIntent of ClearEntityFromTileIntent
-        | AttachEntityToTileIntent of AttachEntityToTileIntent
-        | DetachEntityFromTileIntent of DetachEntityFromTileIntent
+type Intent =
+    | UpdateTileIntent of UpdateTileIntent
+    | MovePlayerIntent of MovePlayerIntent
+    | MoveEntityIntent of MoveEntityIntent
+    | ClearEntityFromTileIntent of ClearEntityFromTileIntent
+    | AttachEntityToTileIntent of AttachEntityToTileIntent
+    | DetachEntityFromTileIntent of DetachEntityFromTileIntent
 
 
-    // Events
+// Events
     
-    type PlayerRotatedEvent = { name: string; entityId: EntityId; player: PlayerEntity; orientation: Direction; }
-    type EntityMovedEvent = { entityId: EntityId; oldPosition: Point; newPosition: Point }
-    type ButtonPressedEvent = { position: Point }
-    type ButtonReleasedEvent = { position: Point }
-    type GateOpenedEvent = { position: Point; gate: GateTile }
-    type GateClosedEvent = { position: Point; gate: GateTile }
-    type BalloonColoredEvent = { entityId: EntityId; inkPosition: Point; color: InkColor }
-    type BalloonPoppedEvent = { entityId: EntityId; pinPosition: Point }
+type PlayerRotatedEvent = { name: string; entityId: EntityId; player: PlayerEntity; orientation: Direction; }
+type EntityMovedEvent = { entityId: EntityId; oldPosition: Point; newPosition: Point }
+type ButtonPressedEvent = { position: Point }
+type ButtonReleasedEvent = { position: Point }
+type GateOpenedEvent = { position: Point; gate: GateTile }
+type GateClosedEvent = { position: Point; gate: GateTile }
+type BalloonColoredEvent = { entityId: EntityId; inkPosition: Point; color: InkColor }
+type BalloonPoppedEvent = { entityId: EntityId; pinPosition: Point }
 
-    type Event =
-        | PlayerRotatedEvent of PlayerRotatedEvent
-        | EntityMovedEvent of EntityMovedEvent
-        | ButtonPressedEvent of ButtonPressedEvent
-        | ButtonReleasedEvent of ButtonReleasedEvent
-        | GateOpenedEvent of GateOpenedEvent
-        | GateClosedEvent of GateClosedEvent
-        | BalloonColoredEvent of BalloonColoredEvent
-        | BalloonPoppedEvent of BalloonPoppedEvent
+type Event =
+    | PlayerRotatedEvent of PlayerRotatedEvent
+    | EntityMovedEvent of EntityMovedEvent
+    | ButtonPressedEvent of ButtonPressedEvent
+    | ButtonReleasedEvent of ButtonReleasedEvent
+    | GateOpenedEvent of GateOpenedEvent
+    | GateClosedEvent of GateClosedEvent
+    | BalloonColoredEvent of BalloonColoredEvent
+    | BalloonPoppedEvent of BalloonPoppedEvent
 
 
-    // Infrastructure
+// Infrastructure
     
-    type IntentResult = IntentAccepted | IntentRejected
+type IntentResult = IntentAccepted | IntentRejected
 
-    type IntentContext =
-        {
-            mapState: GameMap
-            map: MapAccessor
-            emittedEvents: Event list
-            intentResult: IntentResult
+type IntentContext =
+    {
+        mapState: GameMapState
+        map: MapAccessor
+        emittedEvents: Event list
+        intentResult: IntentResult
 
-            doHandleIntent: IntentContext -> Intent -> IntentContext
-            acceptIntent: IntentContext -> Event list -> IntentContext
-            rejectIntent: IntentContext -> IntentContext
-        }
-        member this.HandleIntent = this.doHandleIntent this
-        member this.Accept = this.acceptIntent this
-        member this.Reject = this.rejectIntent this
+        doHandleIntent: IntentContext -> Intent -> IntentContext
+        acceptIntent: IntentContext -> Event list -> IntentContext
+        rejectIntent: IntentContext -> IntentContext
+    }
+    member this.HandleIntent = this.doHandleIntent this
+    member this.Accept = this.acceptIntent this
+    member this.Reject = this.rejectIntent this
 
+module Intent =
     let composeIndependent leftHandler rightHandler inContext =
         if inContext.intentResult = IntentRejected then
             failwithf "composeIndependent (=||=>) failed: Incoming context must not be rejected"

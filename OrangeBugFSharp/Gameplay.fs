@@ -1,16 +1,14 @@
-﻿namespace OrangeBug
+﻿namespace OrangeBug.Game
 
 module Gameplay =
-    open IntentsEvents
-    open Behaviors
-    open Effects
-    open TilesEntities
+    open OrangeBug
+    open OrangeBug.Game.Intent
 
     let private handleIntent context intent =
         match intent with
         | UpdateTileIntent intent ->
             let tileToUpdate = context.map.getAt intent.position
-            let behavior = getTileBehavior tileToUpdate.tile
+            let behavior = Behavior.getTileBehavior tileToUpdate.tile
             behavior.update context { position = intent.position }
 
         | MovePlayerIntent intent ->
@@ -82,22 +80,22 @@ module Gameplay =
 
         | ClearEntityFromTileIntent intent ->
             let _, entity = context.map.getEntity intent.entityId
-            let behavior = entity |> Behaviors.getEntityBehavior
+            let behavior = entity |> Behavior.getEntityBehavior
             behavior.tryClearTile context intent
 
         | AttachEntityToTileIntent intent ->
-            let behavior = (context.map.getAt intent.position).tile |> Behaviors.getTileBehavior
+            let behavior = (context.map.getAt intent.position).tile |> Behavior.getTileBehavior
             behavior.tryAttachEntity context intent
 
         | DetachEntityFromTileIntent intent ->
-            let behavior = (context.map.getAt intent.position).tile |> Behaviors.getTileBehavior
+            let behavior = (context.map.getAt intent.position).tile |> Behavior.getTileBehavior
             behavior.tryDetachEntity context { position = intent.position; }
 
 
      // Intent helpers
 
     let rec private accept context events =
-        let newMap = events |> Seq.collect eventToEffects |> Seq.fold GameMap.applyEffect context.mapState
+        let newMap = events |> Seq.collect Effect.eventToEffects |> Seq.fold GameMap.applyEffect context.mapState
         createIntentContext newMap (context.emittedEvents @ events) IntentAccepted
 
     and private reject context =
@@ -117,7 +115,7 @@ module Gameplay =
     type IntentContext with
         static member Create map = createIntentContext map [] IntentAccepted
 
-    let traverseDependenciesInteractively (action: Point -> IntentContext -> IntentContext) context initialPoints =
+    let private traverseDependenciesInteractively (action: Point -> IntentContext -> IntentContext) context initialPoints =
         // Not very functional, but works for now. TODO: Use fold and stuff, avoid mutable
         let mutable bag = Set.ofSeq initialPoints
         let mutable counter = 0
@@ -153,19 +151,17 @@ module Gameplay =
             ctx.HandleIntent intent
 
         let updateAffectedTiles (ctx: IntentContext) =
-            let effects = ctx.emittedEvents |> Seq.collect eventToEffects
-            let points =
-                effects
-                |> Seq.collect (function
-                    | TileUpdateEffect e -> [ e.position ]
-                    | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
-                    | EntitySpawnEffect e -> [ e.position ]
-                    | EntityDespawnEffect e -> [ e.position ]
-                    | EntityUpdateEffect _ -> []
-                    | SoundEffect _ -> [])
-                |> Set.ofSeq
-            
-            let updater = traverseDependenciesInteractively (fun p ctx -> ctx.HandleIntent (UpdateTileIntent { position = p }))
-            updater ctx points
+            ctx.emittedEvents
+            |> Seq.collect Effect.eventToEffects
+            |> Seq.collect (function
+                | TileUpdateEffect e -> [ e.position ]
+                | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
+                | EntitySpawnEffect e -> [ e.position ]
+                | EntityDespawnEffect e -> [ e.position ]
+                | EntityUpdateEffect _ -> []
+                | SoundEffect _ -> [])
+            |> traverseDependenciesInteractively
+                (fun p ctx -> ctx.HandleIntent (UpdateTileIntent { position = p }))
+                ctx
         
         (IntentContext.Create map) |> (doIntent =&&=> updateAffectedTiles)

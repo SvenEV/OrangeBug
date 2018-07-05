@@ -1,15 +1,14 @@
-﻿namespace OrangeBugFSharp.Web.Hubs
+﻿namespace OrangeBug.Web.Hubs
 
 open Microsoft.AspNetCore.SignalR
-open OrangeBug.GameMap
-open OrangeBug
-open OrangeBug.IntentsEvents
 open System.Threading.Tasks
+open OrangeBug
 open OrangeBug.Web
+open OrangeBug.Game
 
 type GameHub() =
     inherit Hub()
-    
+
     member this.Join() = async {
         let session = SessionManager.getOrCreateSession this.Context.ConnectionId
         do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveInitialMap", session.map))
@@ -24,7 +23,7 @@ type GameHub() =
         | Some direction ->
             let intent = MovePlayerIntent { name = "Player"; direction = direction }
             let result = session.map |> Gameplay.processIntent intent
-            let effects = List.collect Effects.eventToEffects result.emittedEvents
+            let effects = List.collect Effect.eventToEffects result.emittedEvents
             session.map <- result.mapState
             do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEffects", effects))
     }

@@ -1,4 +1,4 @@
-namespace OrangeBugFSharp.Web
+namespace OrangeBug.Web
 
 open Microsoft.AspNetCore
 open Microsoft.AspNetCore.Hosting

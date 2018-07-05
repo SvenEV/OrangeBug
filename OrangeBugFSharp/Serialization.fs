@@ -1,9 +1,9 @@
 ﻿namespace OrangeBug
 
 module Serialization =
+    open OrangeBug.Game
     open Newtonsoft.Json
     open Microsoft.FSharp.Reflection
-    open GameMapTypes
     open System
     open System.Collections
     open Newtonsoft.Json.Linq
@@ -141,7 +141,7 @@ module Serialization =
             not (objectType.IsGenericType  && objectType.GetGenericTypeDefinition() = typedefof<option<_>>) &&
             not (FSharpType.IsRecord objectType)
             
-    type GameMap with
+    type GameMapState with
         member this.toJson = 
             JsonConvert.SerializeObject(this,
                 MapConverter(),

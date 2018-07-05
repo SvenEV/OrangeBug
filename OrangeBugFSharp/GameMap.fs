@@ -1,13 +1,8 @@
-﻿namespace OrangeBug
+﻿namespace OrangeBug.Game
 
 module GameMap =
-    open Grid
-    open TilesEntities
-    open Behaviors
-    open Effects
-    open DependencyGraph
-    open GameMapTypes
-    open IntentsEvents
+    open OrangeBug
+    open OrangeBug.Grid
 
     let private updateTileEntry position updater (tiles: TileEntry Grid) =
         let tileEntry = tiles.Find position
@@ -22,7 +17,7 @@ module GameMap =
         | None, None -> entities
 
     let private addDependenciesForTile tile position graph =
-        let behavior = Behaviors.getTileBehavior tile
+        let behavior = Behavior.getTileBehavior tile
         let dependencies = behavior.getDependencies tile
         dependencies |> List.fold
             (fun (g: DependencyGraph) dependency ->
@@ -30,7 +25,7 @@ module GameMap =
                     match dependency with
                     | RelativeMapDependency offset -> position + offset
                     | AbsoluteMapDependency pos -> pos
-                addEdge position target g)
+                g.addEdge position target)
             graph
     
 
@@ -80,7 +75,7 @@ module GameMap =
     let updateTile position newTile map =
         let newDependencies =
             map.dependencies
-            |> removeOutEdges position
+            |> DependencyGraph.removeOutEdges position
             |> addDependenciesForTile newTile position
             
         let newTiles =
@@ -152,7 +147,7 @@ module GameMap =
 
         { map with tiles = newTiles; entities = newEntities }
 
-    let applyEffect (map: GameMap) effect =
+    let applyEffect (map: GameMapState) effect =
         match effect with
         | TileUpdateEffect e -> map |> updateTile e.position e.tile
         | EntityUpdateEffect e -> map |> updateEntity e.entityId e.entity
@@ -161,25 +156,24 @@ module GameMap =
         | EntityDespawnEffect e -> map |> despawnEntity e.position
         | SoundEffect _ -> map
 
-    type GameMap with
-        static member Create width height =
-            let playerId = EntityId.create
-            let playerPos = Point.create 1 1
-            {
-                size = Point.create width height
-                players = Map.ofList [ "Player", playerId ]
-                entities = Map.ofList [
-                    playerId, EntityEntry.Create playerPos (PlayerEntity { name = "Player"; orientation = East })
-                ]
+    let create width height =
+        let playerId = EntityId.create
+        let playerPos = Point.create 1 1
+        {
+            size = Point.create width height
+            players = Map.ofList [ "Player", playerId ]
+            entities = Map.ofList [
+                playerId, EntityEntry.Create playerPos (PlayerEntity { name = "Player"; orientation = East })
+            ]
             
-                tiles = Grid.init (Point.create width height) (fun p ->
-                    match p with
-                    | p when p = playerPos -> TileEntry.WithEntity playerId PathTile
-                    | Point (0, _) -> TileEntry.WithoutEntity WallTile
-                    | Point (_, 0) -> TileEntry.WithoutEntity WallTile
-                    | Point (x, _) when x = width - 1 -> TileEntry.WithoutEntity WallTile
-                    | Point (_, y) when y = height - 1 -> TileEntry.WithoutEntity WallTile
-                    | _ -> TileEntry.WithoutEntity PathTile)
+            tiles = Grid.init (Point.create width height) (fun p ->
+                match p with
+                | p when p = playerPos -> TileEntry.WithEntity playerId PathTile
+                | Point (0, _) -> TileEntry.WithoutEntity WallTile
+                | Point (_, 0) -> TileEntry.WithoutEntity WallTile
+                | Point (x, _) when x = width - 1 -> TileEntry.WithoutEntity WallTile
+                | Point (_, y) when y = height - 1 -> TileEntry.WithoutEntity WallTile
+                | _ -> TileEntry.WithoutEntity PathTile)
 
-                dependencies = DependencyGraph.empty
-            }
+            dependencies = DependencyGraph.empty
+        }

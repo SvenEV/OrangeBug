@@ -4,10 +4,8 @@ module Program =
 
     open System
     open System.Text
-    open GameMap
-    open TilesEntities
-    open IntentsEvents
-    open OrangeBug
+    open OrangeBug.Game
+    open OrangeBug.Grid
 
     let runGame() =
         let mutable map = SampleMaps.createInitialMap()

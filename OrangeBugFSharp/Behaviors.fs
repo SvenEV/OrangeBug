@@ -1,29 +1,29 @@
-﻿namespace OrangeBug
+﻿namespace OrangeBug.Game
 
-module Behaviors =
-    open IntentsEvents
-    open TilesEntities
+open OrangeBug
+
+type MapDependency =
+    | RelativeMapDependency of offset: Point
+    | AbsoluteMapDependency of position: Point
+
+type TileBehavior = {
+    tryAttachEntity: IntentContext -> AttachEntityToTileIntent -> IntentContext
+    tryDetachEntity: IntentContext -> DetachEntityFromTileIntent -> IntentContext
+    update: IntentContext -> UpdateTileIntent -> IntentContext
+    getDependencies: Tile -> MapDependency list
+}
+
+type EntityBehavior = {
+    tryClearTile: IntentContext -> ClearEntityFromTileIntent -> IntentContext
+}
+
+module Behavior =
     
     // Infrastructure
-
-    type MapDependency =
-        | RelativeMapDependency of offset: Point
-        | AbsoluteMapDependency of position: Point
-
-    type TileBehavior = {
-        tryAttachEntity: IntentContext -> AttachEntityToTileIntent -> IntentContext
-        tryDetachEntity: IntentContext -> DetachEntityFromTileIntent -> IntentContext
-        update: IntentContext -> UpdateTileIntent -> IntentContext
-        getDependencies: Tile -> MapDependency list
-    }
-
-    type EntityBehavior = {
-        tryClearTile: IntentContext -> ClearEntityFromTileIntent -> IntentContext
-    }
     
-    let justAccept (context: IntentContext) _ = context.Accept []
-    let justReject (context: IntentContext) _ = context.Reject
-    let zeroDependencies _ = []
+    let private justAccept (context: IntentContext) _ = context.Accept []
+    let private justReject (context: IntentContext) _ = context.Reject
+    let private zeroDependencies _ = []
     
 
     // Tile behaviors

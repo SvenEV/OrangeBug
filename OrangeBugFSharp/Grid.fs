@@ -1,46 +1,49 @@
-﻿namespace OrangeBug
+﻿namespace OrangeBug.Grid
+
+open OrangeBug
 
 // An immutable quadtree
+
+// Coordinate system:
+//
+// ^ Y
+// |
+// -------
+// |NW|NE|
+// -------
+// |SW|SE|
+// 0-----------> X
+
+type Cell = SW | SE | NW | NE
+
+type 'a Node =
+    | Empty
+    | Leaf of 'a
+    | InnerNode of 'a InnerNode
+    
+and 'a InnerNode =
+    {
+        sw: 'a Node
+        se: 'a Node
+        nw: 'a Node
+        ne: 'a Node
+    }
+    static member Create child = { sw = child; se = child; nw = child; ne = child }
+    member n.Cell c =
+        match c with
+        | SW -> n.sw
+        | SE -> n.se
+        | NW -> n.nw
+        | NE -> n.ne
+
+type 'a Grid = {
+    size: Point
+    root: 'a Node
+}
+
 module Grid =
     open System
     open System.Collections.Generic
-
-    // Coordinate system:
-    //
-    // ^ Y
-    // |
-    // -------
-    // |NW|NE|
-    // -------
-    // |SW|SE|
-    // 0-----------> X
-
-    type Cell = SW | SE | NW | NE
-
-    type 'a Node =
-        | Empty
-        | Leaf of 'a
-        | InnerNode of 'a InnerNode
-    
-    and 'a InnerNode =
-        {
-            sw: 'a Node
-            se: 'a Node
-            nw: 'a Node
-            ne: 'a Node
-        }
-        static member Create child = { sw = child; se = child; nw = child; ne = child }
-        member n.Cell c =
-            match c with
-            | SW -> n.sw
-            | SE -> n.se
-            | NW -> n.nw
-            | NE -> n.ne
-
-    type 'a Grid = {
-        size: Point
-        root: 'a Node
-    }
 
     let empty size = {
         size = size
@@ -186,9 +189,9 @@ module Grid =
         drawNode grid.root (treeSize grid.size) Point.zero
         bitmap
 
-    type 'a Grid with
-        member this.Add p value = add p value this
-        member this.Remove p = remove p this
-        member this.TryFind p = tryFind p this
-        member this.Find p = find p this
-        member this.AsSeq = asSeq this
+type 'a Grid with
+    member this.Add p value = Grid.add p value this
+    member this.Remove p = Grid.remove p this
+    member this.TryFind p = Grid.tryFind p this
+    member this.Find p = Grid.find p this
+    member this.AsSeq = Grid.asSeq this

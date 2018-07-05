@@ -1,11 +1,10 @@
 ﻿namespace OrangeBug.Web
 
 module SessionManager =
-    open OrangeBug
-    open GameMapTypes
+    open OrangeBug.Game
 
     type GameSession = {
-        mutable map: GameMap
+        mutable map: GameMapState
     }
 
     let mutable sessions = Map.empty<string, GameSession>
