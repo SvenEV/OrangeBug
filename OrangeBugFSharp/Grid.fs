@@ -28,7 +28,7 @@ and 'a InnerNode =
         nw: 'a Node
         ne: 'a Node
     }
-    static member Create child = { sw = child; se = child; nw = child; ne = child }
+    static member Create child : 'a InnerNode = { sw = child; se = child; nw = child; ne = child }
     member n.Cell c =
         match c with
         | SW -> n.sw

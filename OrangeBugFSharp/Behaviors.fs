@@ -161,16 +161,17 @@ module Behavior =
             match target.entityId with
                 | None -> context.Accept []
                 | Some entityToClear ->
-                    let pushDirection = match orientation, intent.suggestedPushDirection with
-                    | North, Some South -> Some East
-                    | North, Some West -> Some North
-                    | East, Some West -> Some South
-                    | East, Some North -> Some East
-                    | South, Some North -> Some West
-                    | South, Some East -> Some South
-                    | West, Some East -> Some North
-                    | West, Some South -> Some West
-                    | _ -> None
+                    let pushDirection =
+                        match orientation, intent.suggestedPushDirection with
+                        | North, Some South -> Some East
+                        | North, Some West -> Some North
+                        | East, Some West -> Some South
+                        | East, Some North -> Some East
+                        | South, Some North -> Some West
+                        | South, Some East -> Some South
+                        | West, Some East -> Some North
+                        | West, Some South -> Some West
+                        | _ -> None
 
                     context.HandleIntent (ClearEntityFromTileIntent { 
                         entityId = entityToClear
