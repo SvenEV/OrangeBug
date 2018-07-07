@@ -33,16 +33,13 @@ type ClearEntityFromTileIntent = {
 }
 
 type AttachEntityToTileIntent = {
-    position: Point
-    entityToAttach: EntityId
+    oldPosition: Point
     move: MoveEntityIntent
-    moveOldPosition: Point
 }
 
 type DetachEntityFromTileIntent = {
     position: Point
     move: MoveEntityIntent
-    moveOldPosition: Point
 }
 
 type Intent =

@@ -39,14 +39,14 @@ module Behavior =
 
     let PathTileBehavior = {
         tryAttachEntity = fun intent context ->
-            let target = context.map.getAt intent.position
+            let target = context.map.getAt intent.move.newPosition
             match target.entityId with
                 | None -> context.Accept []
                 | Some entityToClear ->
                     let moveDirection =
                         match intent.move.mode with
                         | Teleport -> None
-                        | Push _ -> (intent.position - intent.moveOldPosition).asDirection
+                        | Push _ -> (intent.move.newPosition - intent.oldPosition).asDirection
                     context.HandleIntent (ClearEntityFromTileIntent { 
                         entityId = entityToClear
                         suggestedPushDirection = moveDirection
@@ -60,7 +60,7 @@ module Behavior =
 
     let ButtonTileBehavior = {
         tryAttachEntity = fun intent context ->
-            let emitEvent (ctx: IntentContext) = ctx.Accept [ ButtonPressedEvent { position = intent.position } ]
+            let emitEvent (ctx: IntentContext) = ctx.Accept [ ButtonPressedEvent { position = intent.move.newPosition } ]
             context |> (PathTileBehavior.tryAttachEntity intent =&&=> emitEvent)
 
         tryDetachEntity = fun intent context ->
@@ -73,14 +73,14 @@ module Behavior =
     let InkTileBehavior = {
         tryAttachEntity = fun intent context ->
             let emitEvent ctx =
-                let (InkTile inkColor) = (ctx.map.getAt intent.position).tile
-                let _, entity = ctx.map.getEntity intent.entityToAttach
+                let (InkTile inkColor) = (ctx.map.getAt intent.move.newPosition).tile
+                let _, entity = ctx.map.getEntity intent.move.entityId
                 match entity with
                 | BalloonEntity _ ->
                     ctx.Accept [
                         BalloonColoredEvent { 
-                            entityId = intent.entityToAttach
-                            inkPosition = intent.position
+                            entityId = intent.move.entityId
+                            inkPosition = intent.move.newPosition
                             color = inkColor
                         }
                     ]
@@ -95,12 +95,12 @@ module Behavior =
     let PinTileBehavior = {
         tryAttachEntity = fun intent context ->
             let emitEvent ctx =
-                let (PinTile pinColor) = (ctx.map.getAt intent.position).tile
-                let _, entity = ctx.map.getEntity intent.entityToAttach
+                let (PinTile pinColor) = (ctx.map.getAt intent.move.newPosition).tile
+                let _, entity = ctx.map.getEntity intent.move.entityId
                 match entity with
                 | BalloonEntity color when color = pinColor ->
                     // TODO: Do we need to emit EntityMovedEvent before BalloonPoppedEvent?
-                    ctx.Accept [ BalloonPoppedEvent { entityId = intent.entityToAttach; pinPosition = intent.position } ]
+                    ctx.Accept [ BalloonPoppedEvent { entityId = intent.move.entityId; pinPosition = intent.move.newPosition } ]
                 | PlayerEntity _ -> ctx.Accept []
                 | _ -> ctx.Reject
 
@@ -113,7 +113,7 @@ module Behavior =
 
     let GateTileBehavior = {
         tryAttachEntity = fun intent context ->
-            let (GateTile gate) = (context.map.getAt intent.position).tile
+            let (GateTile gate) = (context.map.getAt intent.move.newPosition).tile
             match gate.isOpen with
             | true -> PathTileBehavior.tryAttachEntity intent context
             | false -> WallTileBehavior.tryAttachEntity intent context
@@ -161,9 +161,9 @@ module Behavior =
     
     let CornerTileBehavior = {
         tryAttachEntity = fun intent context ->
-            let target = context.map.getAt intent.position
+            let target = context.map.getAt intent.move.newPosition
             let (CornerTile orientation) = target.tile
-            let inDirection = (intent.move.newPosition - intent.moveOldPosition).asDirection
+            let inDirection = (intent.move.newPosition - intent.oldPosition).asDirection
             let outDirection = CornerTile.mapInToOutDirection orientation inDirection
 
             // ensure entity can't move in from a wall side of the corner (but allow teleports)
@@ -188,7 +188,7 @@ module Behavior =
         tryDetachEntity = fun intent context ->
             let target = context.map.getAt intent.position
             let (CornerTile orientation) = target.tile
-            let outDirection = (intent.move.newPosition - intent.moveOldPosition).asDirection
+            let outDirection = (intent.move.newPosition - intent.position).asDirection
             let validOutDir = CornerTile.isValidOutDirection orientation outDirection
             match intent.move.mode, validOutDir with
             | Push _, false -> context.Reject

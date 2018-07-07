@@ -47,15 +47,12 @@ module Gameplay =
                 ctx.HandleIntent (DetachEntityFromTileIntent {
                     position = oldPosition
                     move = intent
-                    moveOldPosition = oldPosition
                 })
 
             let attachToTarget (ctx: IntentContext) =
                 ctx.HandleIntent (AttachEntityToTileIntent {
-                    position = intent.newPosition
-                    entityToAttach = intent.entityId
+                    oldPosition = oldPosition
                     move = intent
-                    moveOldPosition = oldPosition
                 })
 
             let emitEvent (ctx: IntentContext) =
@@ -82,7 +79,7 @@ module Gameplay =
             behavior.tryClearTile intent context
 
         | AttachEntityToTileIntent intent ->
-            let behavior = (context.map.getAt intent.position).tile |> Behavior.getTileBehavior
+            let behavior = (context.map.getAt intent.move.newPosition).tile |> Behavior.getTileBehavior
             behavior.tryAttachEntity intent context
 
         | DetachEntityFromTileIntent intent ->
