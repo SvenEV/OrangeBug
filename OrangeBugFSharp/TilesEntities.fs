@@ -18,6 +18,13 @@ type GateTile = {
     isOpen: bool
 }
 
+type PistonTile = {
+    orientation: Direction
+    triggerPosition: Point
+    force: int
+    isExtended: bool
+}
+
 type Tile =
     | PathTile
     | WallTile
@@ -27,6 +34,7 @@ type Tile =
     | GateTile of state: GateTile
     | TeleporterTile of targetPosition: Point
     | CornerTile of orientation: Direction
+    | PistonTile of state: PistonTile
 
 module CornerTile =
     let mapInToOutDirection orientation inDirection =
@@ -63,6 +71,7 @@ type Entity =
     | PlayerEntity of state: PlayerEntity
     | BoxEntity
     | BalloonEntity of color: InkColor
+    | PistonEntity of orientation: Direction
 
     
 type TileInfo = {

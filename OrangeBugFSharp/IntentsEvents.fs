@@ -17,7 +17,7 @@ type TransportationMode =
     | Teleport
     | Push of force: int // >1 needed for pushing adjacent entities
 
-type MoveInitiator = Player | System
+type MoveInitiator = Other | SomeTeleporter | SomePiston
 
 type MoveEntityIntent = {
     entityId: EntityId
@@ -61,6 +61,8 @@ type GateOpenedEvent = { position: Point; gate: GateTile }
 type GateClosedEvent = { position: Point; gate: GateTile }
 type BalloonColoredEvent = { entityId: EntityId; inkPosition: Point; color: InkColor }
 type BalloonPoppedEvent = { entityId: EntityId; pinPosition: Point }
+type PistonExtendedEvent = { position: Point; piston: PistonTile }
+type PistonRetractedEvent = { position: Point; piston: PistonTile }
 
 type Event =
     | PlayerRotatedEvent of PlayerRotatedEvent
@@ -71,6 +73,8 @@ type Event =
     | GateClosedEvent of GateClosedEvent
     | BalloonColoredEvent of BalloonColoredEvent
     | BalloonPoppedEvent of BalloonPoppedEvent
+    | PistonExtendedEvent of PistonExtendedEvent
+    | PistonRetractedEvent of PistonRetractedEvent
 
 
 // Infrastructure

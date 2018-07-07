@@ -69,7 +69,7 @@ module Effect =
                 SoundEffect { key = "RotatePlayer.mp3" }
                 EntityUpdateEffect { entityId = ev.entityId; entity = PlayerEntity newState }
             ]
-        
+
         | ButtonPressedEvent ev ->
             [ TileUpdateEffect { position = ev.position; tile = ButtonTile true }]
 
@@ -88,9 +88,16 @@ module Effect =
                 EntityUpdateEffect { entityId = ev.entityId; entity = BalloonEntity ev.color }
                 TileUpdateEffect { position = ev.inkPosition; tile = PathTile }
             ]
+
         | BalloonPoppedEvent ev ->
             [
                 SoundEffect { key = "PopBalloon.mp3" }
                 EntityDespawnEffect { entityId = ev.entityId; position = ev.pinPosition }
             ]
+
+        | PistonExtendedEvent ev ->
+            [ TileUpdateEffect { position = ev.position; tile = PistonTile { ev.piston with isExtended = true } } ]
+
+        | PistonRetractedEvent ev ->
+            [ TileUpdateEffect { position = ev.position; tile = PistonTile { ev.piston with isExtended = false } } ]
 

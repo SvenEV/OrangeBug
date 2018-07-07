@@ -60,6 +60,8 @@ class MeshFactory {
         this.meshGenerators.ButtonTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Button"))
         this.meshGenerators.TeleporterTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Teleport"))
         this.meshGenerators.CornerTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Corner"))
+        this.meshGenerators.PistonTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Piston"))
+        this.meshGenerators.PistonEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("BoxingGlove"))
         this.meshGenerators.BoxEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("Box"))
         this.meshGenerators.PlayerEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("PlayerRight"))
     }
@@ -128,6 +130,13 @@ class TileVisual extends Object3D {
                 case "East": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break;
                 case "South": this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break;
             }
+        } else if (value.$type === "PistonTile") {
+            switch (value.orientation) {
+                case "North": this.setRotationFromEuler(new Euler(0, 0, 0)); break;
+                case "East": this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break;
+                case "South": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break;
+                case "West": this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break;
+            }
         } else {
             this.setRotationFromEuler(new Euler(0, 0, 0))
         }
@@ -160,6 +169,13 @@ class EntityVisual extends Object3D {
 
         if (value.$type === "PlayerEntity") {
             switch (value.state.orientation) {
+                case "North": this.setRotationFromEuler(new Euler(0, 0, 0)); break
+                case "East": this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break
+                case "South": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break
+                case "West": this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break
+            }
+        } else if (value.$type === "PistonEntity") {
+            switch (value.orientation) {
                 case "North": this.setRotationFromEuler(new Euler(0, 0, 0)); break
                 case "East": this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break
                 case "South": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break

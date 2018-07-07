@@ -14,6 +14,7 @@ type TileBehavior = {
 }
 
 type EntityBehavior = {
+    validateDetach: DetachEntityFromTileIntent -> IntentContext -> IntentContext
     tryClearTile: ClearEntityFromTileIntent -> IntentContext -> IntentContext
 }
 
@@ -146,17 +147,21 @@ module Behavior =
         tryDetachEntity = justAccept
         getDependencies = zeroDependencies
         update = fun intent context ->
-            let tileEntry = context.map.getAt intent.position
-            let (TeleporterTile targetPosition) = tileEntry.tile
-            match tileEntry.entityId with
-            | None -> context.Accept []
-            | Some entityId ->
-                context.HandleIntent (MoveEntityIntent { 
-                    entityId = entityId
-                    newPosition = targetPosition
-                    mode = Teleport
-                    initiator = System
-                })
+            // TODO: How to access move initiator here? A tile update isn't necessarily caused by a move...
+            //match intent.move.initiator with
+            //| SomeTeleporter -> context.Reject // do not teleport again if teleported onto another teleporter
+            //| _ ->
+                let tileEntry = context.map.getAt intent.position
+                let (TeleporterTile targetPosition) = tileEntry.tile
+                match tileEntry.entityId with
+                | None -> context.Accept []
+                | Some entityId ->
+                    context.HandleIntent (MoveEntityIntent { 
+                        entityId = entityId
+                        newPosition = targetPosition
+                        mode = Teleport
+                        initiator = SomeTeleporter
+                    })
     }
     
     let CornerTileBehavior = {
@@ -198,14 +203,85 @@ module Behavior =
         getDependencies = zeroDependencies
     }
 
+    let PistonTileBehavior = {
+        tryAttachEntity = fun intent context ->
+            let _, entity = context.map.getEntity intent.move.entityId
+            match entity with
+            | PistonEntity _ -> context.Accept[]
+            | _ -> context.Reject
+
+        tryDetachEntity = fun intent context ->
+            let _, entity = context.map.getEntity intent.move.entityId
+            match entity with
+            | PistonEntity _ -> context.Accept[]
+            | _ -> context.Reject
+
+        update = fun intent context ->
+            let tileInfo = context.map.getAt intent.position
+            let (PistonTile piston) = tileInfo.tile
+            let isTriggerOn = (context.map.getAt piston.triggerPosition).tile |> function
+                | ButtonTile b -> b
+                | _ -> false
+            
+            let neighborPosition = intent.position + piston.orientation.asPoint
+            let neighborTileInfo = context.map.getAt neighborPosition
+
+            let extendPiston (ctx: IntentContext) =
+                let pistonEntity =
+                    match tileInfo.entityId with
+                    | Some id -> id
+                    | None -> failwithf "Missing PistonEntity on PistonTile at '%O' while trying to extend" intent.position
+                ctx.HandleIntent (MoveEntityIntent {
+                    entityId = pistonEntity
+                    newPosition = intent.position + piston.orientation.asPoint
+                    mode = Push piston.force
+                    initiator = SomePiston
+                })
+
+            let retractPiston (ctx: IntentContext) =
+                let pistonEntity =
+                    match tileInfo.entityId, neighborTileInfo.entityId with
+                    | Some id, _ -> id
+                    | None, Some id -> id
+                    | None, None -> failwithf "Missing PistonEntity on PistonTile at '%O' or '%O' while trying to retract" intent.position neighborPosition
+                ctx.HandleIntent (MoveEntityIntent {
+                    entityId = pistonEntity
+                    newPosition = intent.position
+                    mode = Push 1 // no need for stronger force here (by the way, TODO: Do we need a Pull-mode?)
+                    initiator = SomePiston
+                })
+            
+            match piston.isExtended, isTriggerOn with
+            | false, true ->
+                context |> (extendPiston
+                    =&&=> fun ctx -> ctx.Accept [ PistonExtendedEvent { position = intent.position; piston = piston } ])
+            | true, false -> 
+                context |> (retractPiston
+                    =&&=> fun ctx -> ctx.Accept [ PistonRetractedEvent { position = intent.position; piston = piston } ])
+            | _ -> context.Accept []
+
+        getDependencies = fun tile ->
+            // Pistons have a dependency on their trigger and on all tiles along the push direction
+            // that could cause a held-back piston to extend if an entity detaches.
+            // TODO: This won't work if CornerTiles are involved (and produces unnecessarily many
+            // dependencies if there's a WallTile in the "line of sight")! Do we need some kind of
+            // raycast mechanism? Or should we just put dependencies onto all tiles in a certain radius?
+            let (PistonTile piston) = tile
+            let neighborDeps = [1 .. piston.force] |> List.map (fun i -> RelativeMapDependency (i * piston.orientation.asPoint))
+            let triggerDep = AbsoluteMapDependency piston.triggerPosition
+            triggerDep :: neighborDeps
+    }
+
 
     // Entity behaviors
     
     let PlayerEntityBehavior = {
+        validateDetach = justAccept
         tryClearTile = justReject
     }
 
     let BoxEntityBehavior = {
+        validateDetach = justAccept
         tryClearTile = fun intent context ->
             match intent.move.mode, intent.suggestedPushDirection with
             | _, None -> context.Reject // box can't just disappear without moving somewhere
@@ -222,7 +298,18 @@ module Behavior =
     }
 
     let BalloonEntityBehavior = {
+        validateDetach = justAccept
         tryClearTile = BoxEntityBehavior.tryClearTile
+    }
+
+    let PistonEntityBehavior = {
+        validateDetach = fun intent context ->
+            // piston entity can only be moved by piston tile (e.g. it can't be teleported)
+            match intent.move.initiator with
+            | SomePiston -> context.Accept []
+            | _ -> context.Reject
+
+        tryClearTile = justReject
     }
 
     let getTileBehavior tile =
@@ -235,9 +322,11 @@ module Behavior =
         | GateTile _ -> GateTileBehavior
         | TeleporterTile _ -> TeleporterTileBehavior
         | CornerTile _ -> CornerTileBehavior
+        | PistonTile _ -> PistonTileBehavior
 
     let getEntityBehavior entity =
         match entity with
         | PlayerEntity _ -> PlayerEntityBehavior
         | BoxEntity _ -> BoxEntityBehavior
         | BalloonEntity _ -> BalloonEntityBehavior
+        | PistonEntity _ -> PistonEntityBehavior

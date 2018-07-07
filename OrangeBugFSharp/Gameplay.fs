@@ -28,7 +28,7 @@ module Gameplay =
                     entityId = playerId;
                     newPosition = playerPos + intent.direction.asPoint
                     mode = Push 2
-                    initiator = Player
+                    initiator = Other
                 })
             
             context |> (rotatePlayer =||=> movePlayer)
@@ -83,8 +83,10 @@ module Gameplay =
             behavior.tryAttachEntity intent context
 
         | DetachEntityFromTileIntent intent ->
-            let behavior = (context.map.getAt intent.position).tile |> Behavior.getTileBehavior
-            behavior.tryDetachEntity intent context
+            let tileInfo = context.map.getAt intent.position
+            let tileBehavior = tileInfo.tile |> Behavior.getTileBehavior
+            let entityBehavior = tileInfo.entityId.Value |> context.map.getEntity |> snd |> Behavior.getEntityBehavior
+            context |> (entityBehavior.validateDetach intent =&&=> tileBehavior.tryDetachEntity intent)
 
 
      // Intent helpers
@@ -142,7 +144,6 @@ module Gameplay =
 
             let current = Seq.head todoPoints
 
-            // TODO: It bugs me that I can't properly use my composeIndependent function
             let updateResult = action current lastAcceptedIntent
             let updateEvents =
                 Set.difference

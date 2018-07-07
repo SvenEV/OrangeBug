@@ -27,6 +27,7 @@ module Rendering =
                 | West -> "◄"
             | BoxEntity -> "▥"
             | BalloonEntity _ -> "O"
+            | PistonEntity _ -> "&"
         | None -> " "
 
     let mapAsString (map: GameMapState) =

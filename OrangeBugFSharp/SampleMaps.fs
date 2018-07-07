@@ -5,7 +5,7 @@ module SampleMaps =
     open OrangeBug
 
     let createInitialMap() =
-        GameMap.create 12 8
+        GameMap.create 15 8
         |> GameMap.updateTile (Point.create 4 4) (ButtonTile false)
         |> GameMap.updateTile (Point.create 5 4) (GateTile { isOpen = true; triggerPosition = Point.create 4 4 })
         |> GameMap.updateTile (Point.create 5 5) (GateTile { isOpen = false; triggerPosition = Point.create 4 4 })
@@ -21,3 +21,8 @@ module SampleMaps =
         |> GameMap.updateTile (Point.create 2 4) (CornerTile East)
         |> GameMap.updateTile (Point.create 2 3) (TeleporterTile (Point.create 2 2))
         |> GameMap.updateTile (Point.create 2 1) (TeleporterTile (Point.create 2 2))
+        |> GameMap.updateTile (Point.create 12 3) (PistonTile { orientation = North; triggerPosition = Point.create 4 4; force = 2; isExtended = false })
+        |> GameMap.spawnEntity (Point.create 12 3) EntityId.create (PistonEntity North)
+        //|> GameMap.updateTile (Point.create 12 4) (CornerTile South)
+        |> GameMap.updateTile (Point.create 12 4) (TeleporterTile (Point.create 2 6))
+        |> GameMap.spawnEntity (Point.create 12 4) EntityId.create BoxEntity
