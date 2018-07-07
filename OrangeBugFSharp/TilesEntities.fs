@@ -27,7 +27,30 @@ type Tile =
     | GateTile of state: GateTile
     | TeleporterTile of targetPosition: Point
     | CornerTile of orientation: Direction
-    
+
+module CornerTile =
+    let mapInToOutDirection orientation inDirection =
+        match orientation, inDirection with
+        | North, Some South -> Some East
+        | North, Some West -> Some North
+        | East, Some West -> Some South
+        | East, Some North -> Some East
+        | South, Some North -> Some West
+        | South, Some East -> Some South
+        | West, Some East -> Some North
+        | West, Some South -> Some West
+        | _ -> None
+    let isValidOutDirection orientation outDirection =
+        match outDirection with
+        | None -> false
+        | Some outDirection ->
+            List.contains
+                outDirection
+                (match orientation with
+                | North -> [ North; East ]
+                | East -> [ East; South ]
+                | South -> [ South; West ]
+                | West -> [ West; North ])
 
 // Entities
     

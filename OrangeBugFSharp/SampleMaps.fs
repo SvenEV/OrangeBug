@@ -19,3 +19,5 @@ module SampleMaps =
         |> GameMap.updateTile (Point.create 10 6) (TeleporterTile (Point.create 10 2))
         |> GameMap.updateTile (Point.create 2 2) (CornerTile West)
         |> GameMap.updateTile (Point.create 2 4) (CornerTile East)
+        |> GameMap.updateTile (Point.create 2 3) (TeleporterTile (Point.create 2 2))
+        |> GameMap.updateTile (Point.create 2 1) (TeleporterTile (Point.create 2 2))

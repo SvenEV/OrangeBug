@@ -13,27 +13,36 @@ type MovePlayerIntent = {
     direction: Direction
 }
 
+type TransportationMode =
+    | Teleport
+    | Push of force: int // >1 needed for pushing adjacent entities
+
+type MoveInitiator = Player | System
+
 type MoveEntityIntent = {
     entityId: EntityId
     newPosition: Point
-    force: int // >1 needed for pushing things
+    mode: TransportationMode
+    initiator: MoveInitiator
 }
 
 type ClearEntityFromTileIntent = {
     entityId: EntityId
     suggestedPushDirection: Direction option
-    force: int
+    move: MoveEntityIntent
 }
 
 type AttachEntityToTileIntent = {
     position: Point
     entityToAttach: EntityId
-    suggestedPushDirection: Direction option
-    force: int
+    move: MoveEntityIntent
+    moveOldPosition: Point
 }
 
 type DetachEntityFromTileIntent = {
     position: Point
+    move: MoveEntityIntent
+    moveOldPosition: Point
 }
 
 type Intent =

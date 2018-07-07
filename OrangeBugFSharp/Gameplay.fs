@@ -27,7 +27,8 @@ module Gameplay =
                 ctx.HandleIntent (MoveEntityIntent {
                     entityId = playerId;
                     newPosition = playerPos + intent.direction.asPoint
-                    force = 2
+                    mode = Push 2
+                    initiator = Player
                 })
             
             context |> (rotatePlayer =||=> movePlayer)
@@ -38,17 +39,23 @@ module Gameplay =
             let offset = intent.newPosition - oldPosition
 
             let validateForce (ctx: IntentContext) =
-                if intent.force > 0 then ctx.Accept [] else ctx.Reject
+                match intent.mode with
+                | Push 0 -> ctx.Reject
+                | _ -> ctx.Accept []
 
             let detachFromSource (ctx: IntentContext) =
-                ctx.HandleIntent (DetachEntityFromTileIntent { position = oldPosition })
+                ctx.HandleIntent (DetachEntityFromTileIntent {
+                    position = oldPosition
+                    move = intent
+                    moveOldPosition = oldPosition
+                })
 
             let attachToTarget (ctx: IntentContext) =
                 ctx.HandleIntent (AttachEntityToTileIntent {
                     position = intent.newPosition
                     entityToAttach = intent.entityId
-                    suggestedPushDirection = offset.asDirection
-                    force = intent.force
+                    move = intent
+                    moveOldPosition = oldPosition
                 })
 
             let emitEvent (ctx: IntentContext) =
@@ -80,7 +87,7 @@ module Gameplay =
 
         | DetachEntityFromTileIntent intent ->
             let behavior = (context.map.getAt intent.position).tile |> Behavior.getTileBehavior
-            behavior.tryDetachEntity { position = intent.position; } context
+            behavior.tryDetachEntity intent context
 
 
      // Intent helpers

@@ -43,10 +43,14 @@ module Behavior =
             match target.entityId with
                 | None -> context.Accept []
                 | Some entityToClear ->
+                    let moveDirection =
+                        match intent.move.mode with
+                        | Teleport -> None
+                        | Push _ -> (intent.position - intent.moveOldPosition).asDirection
                     context.HandleIntent (ClearEntityFromTileIntent { 
                         entityId = entityToClear
-                        suggestedPushDirection = intent.suggestedPushDirection
-                        force = intent.force - 1
+                        suggestedPushDirection = moveDirection
+                        move = intent.move
                     })
 
         tryDetachEntity = justAccept
@@ -95,6 +99,7 @@ module Behavior =
                 let _, entity = ctx.map.getEntity intent.entityToAttach
                 match entity with
                 | BalloonEntity color when color = pinColor ->
+                    // TODO: Do we need to emit EntityMovedEvent before BalloonPoppedEvent?
                     ctx.Accept [ BalloonPoppedEvent { entityId = intent.entityToAttach; pinPosition = intent.position } ]
                 | PlayerEntity _ -> ctx.Accept []
                 | _ -> ctx.Reject
@@ -149,37 +154,46 @@ module Behavior =
                 context.HandleIntent (MoveEntityIntent { 
                     entityId = entityId
                     newPosition = targetPosition
-                    force = 1
+                    mode = Teleport
+                    initiator = System
                 })
     }
     
     let CornerTileBehavior = {
         tryAttachEntity = fun intent context ->
-            // TODO: Make sure things can't move in from the wrong side
             let target = context.map.getAt intent.position
             let (CornerTile orientation) = target.tile
-            match target.entityId with
-                | None -> context.Accept []
-                | Some entityToClear ->
-                    let pushDirection =
-                        match orientation, intent.suggestedPushDirection with
-                        | North, Some South -> Some East
-                        | North, Some West -> Some North
-                        | East, Some West -> Some South
-                        | East, Some North -> Some East
-                        | South, Some North -> Some West
-                        | South, Some East -> Some South
-                        | West, Some East -> Some North
-                        | West, Some South -> Some West
-                        | _ -> None
+            let inDirection = (intent.move.newPosition - intent.moveOldPosition).asDirection
+            let outDirection = CornerTile.mapInToOutDirection orientation inDirection
 
-                    context.HandleIntent (ClearEntityFromTileIntent { 
-                        entityId = entityToClear
-                        suggestedPushDirection = pushDirection
-                        force = intent.force - 1
-                    })
+            // ensure entity can't move in from a wall side of the corner (but allow teleports)
+            let validateEntry (ctx: IntentContext) =
+                match intent.move.mode, outDirection with
+                | Push _, None _ -> ctx.Reject
+                | _ -> ctx.Accept []
+            
+            // empty the target tile, suggesting a move around the corner
+            let clearTargetTile (ctx: IntentContext) =
+                match target.entityId with
+                    | None -> ctx.Accept []
+                    | Some entityToClear ->
+                        ctx.HandleIntent (ClearEntityFromTileIntent { 
+                            entityId = entityToClear
+                            suggestedPushDirection = outDirection
+                            move = intent.move
+                        })
 
-        tryDetachEntity = justAccept
+            context |> (validateEntry =&&=> clearTargetTile)
+
+        tryDetachEntity = fun intent context ->
+            let target = context.map.getAt intent.position
+            let (CornerTile orientation) = target.tile
+            let outDirection = (intent.move.newPosition - intent.moveOldPosition).asDirection
+            let validOutDir = CornerTile.isValidOutDirection orientation outDirection
+            match intent.move.mode, validOutDir with
+            | Push _, false -> context.Reject
+            | _ -> context.Accept []
+
         update = justAccept
         getDependencies = zeroDependencies
     }
@@ -193,14 +207,17 @@ module Behavior =
 
     let BoxEntityBehavior = {
         tryClearTile = fun intent context ->
-            match intent.suggestedPushDirection with
-            | None -> context.Reject // box can't just disappear without moving somewhere
-            | Some dir ->
+            match intent.move.mode, intent.suggestedPushDirection with
+            | _, None -> context.Reject // box can't just disappear without moving somewhere
+            | Teleport, _ -> context.Reject // box can't be pushed away through teleportation
+            | Push force, Some dir ->
                 let position, _ = context.map.getEntity intent.entityId
+                    
                 context.HandleIntent (MoveEntityIntent {
                     entityId = intent.entityId
                     newPosition = position + dir.asPoint
-                    force = intent.force
+                    mode = Push (force - 1)
+                    initiator = intent.move.initiator
                 })
     }
 
