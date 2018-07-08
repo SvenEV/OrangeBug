@@ -147,21 +147,44 @@ module Behavior =
         tryDetachEntity = justAccept
         getDependencies = zeroDependencies
         update = fun intent context ->
-            // TODO: How to access move initiator here? A tile update isn't necessarily caused by a move...
-            //match intent.move.initiator with
-            //| SomeTeleporter -> context.Reject // do not teleport again if teleported onto another teleporter
-            //| _ ->
-                let tileEntry = context.map.getAt intent.position
-                let (TeleporterTile targetPosition) = tileEntry.tile
+            let tileEntry = context.map.getAt intent.position
+            let (TeleporterTile teleporter) = tileEntry.tile
+
+            match teleporter.isActive with
+            | true ->
+                // teleport entity (if target is again a teleporter, temporarily deactivate)
                 match tileEntry.entityId with
                 | None -> context.Accept []
                 | Some entityId ->
-                    context.HandleIntent (MoveEntityIntent { 
-                        entityId = entityId
-                        newPosition = targetPosition
-                        mode = Teleport
-                        initiator = SomeTeleporter
-                    })
+                    let doTeleport (ctx: IntentContext) =
+                        ctx.HandleIntent (MoveEntityIntent { 
+                            entityId = entityId
+                            newPosition = teleporter.targetPosition
+                            mode = Teleport
+                            initiator = SomeTeleporter
+                        })
+                    
+                    let deactivateTargetTeleporter (ctx: IntentContext) =
+                        let targetTile = context.map.getAt teleporter.targetPosition
+                        match targetTile.tile with
+                        | TeleporterTile targetTeleporter ->
+                            ctx.Accept [
+                                TeleporterDeactivatedEvent {
+                                    position = teleporter.targetPosition
+                                    teleporter = targetTeleporter
+                                }
+                            ]
+                        | _ -> ctx.Accept []
+                    
+                    context |> (doTeleport =&&=> deactivateTargetTeleporter)
+            | false ->
+                // do not teleport but re-activate teleporter
+                context.Accept [
+                    TeleporterActivatedEvent { 
+                        position = intent.position
+                        teleporter = teleporter
+                    }
+                ]
     }
     
     let CornerTileBehavior = {

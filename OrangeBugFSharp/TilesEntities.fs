@@ -18,6 +18,11 @@ type GateTile = {
     isOpen: bool
 }
 
+type TeleporterTile = {
+    targetPosition: Point
+    isActive: bool
+}
+
 type PistonTile = {
     orientation: Direction
     triggerPosition: Point
@@ -32,7 +37,7 @@ type Tile =
     | PinTile of color: InkColor
     | ButtonTile of isPressed: bool
     | GateTile of state: GateTile
-    | TeleporterTile of targetPosition: Point
+    | TeleporterTile of state: TeleporterTile
     | CornerTile of orientation: Direction
     | PistonTile of state: PistonTile
 

@@ -10,9 +10,10 @@
     <Compile Include="DependencyGraph.fs" />
     <Compile Include="TilesEntities.fs" />
     <Compile Include="GameMapTypes.fs" />
-    <Compile Include="IntentsEvents.fs" />
-    <Compile Include="Behaviors.fs" />
+    <Compile Include="Events.fs" />
     <Compile Include="Effects.fs" />
+    <Compile Include="Intents.fs" />
+    <Compile Include="Behaviors.fs" />
     <Compile Include="GameMap.fs" />
     <Compile Include="Gameplay.fs" />
     <Compile Include="Rendering.fs" />

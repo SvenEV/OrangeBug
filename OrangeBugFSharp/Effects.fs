@@ -95,6 +95,12 @@ module Effect =
                 EntityDespawnEffect { entityId = ev.entityId; position = ev.pinPosition }
             ]
 
+        | TeleporterDeactivatedEvent ev ->
+            [ TileUpdateEffect { position = ev.position; tile = TeleporterTile { ev.teleporter with isActive = false } }]
+
+        | TeleporterActivatedEvent ev ->
+            [ TileUpdateEffect { position = ev.position; tile = TeleporterTile { ev.teleporter with isActive = true } }]
+
         | PistonExtendedEvent ev ->
             [ TileUpdateEffect { position = ev.position; tile = PistonTile { ev.piston with isExtended = true } } ]
 

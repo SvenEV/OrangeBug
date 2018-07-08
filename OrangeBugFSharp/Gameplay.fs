@@ -9,7 +9,7 @@ module Gameplay =
         | UpdateTileIntent intent ->
             let tileToUpdate = context.map.getAt intent.position
             let behavior = Behavior.getTileBehavior tileToUpdate.tile
-            behavior.update { position = intent.position } context
+            behavior.update intent context
 
         | MovePlayerIntent intent ->
             let playerId = context.map.getPlayerId intent.name
