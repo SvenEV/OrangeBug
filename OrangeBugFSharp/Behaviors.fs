@@ -1,16 +1,10 @@
 ﻿namespace OrangeBug.Game
 
-open OrangeBug
-
-type MapDependency =
-    | RelativeMapDependency of offset: Point
-    | AbsoluteMapDependency of position: Point
-
 type TileBehavior = {
     tryAttachEntity: AttachEntityToTileIntent -> IntentContext -> IntentResult
     tryDetachEntity: DetachEntityFromTileIntent -> IntentContext -> IntentResult
     update: UpdateTileIntent -> IntentContext -> IntentResult
-    getDependencies: Tile -> MapDependency list
+    getStaticDependencies: Tile -> MapDependency list
 }
 
 type EntityBehavior = {
@@ -35,7 +29,7 @@ module Behavior =
         tryAttachEntity = justReject
         tryDetachEntity = justReject
         update = justAccept
-        getDependencies = zeroDependencies
+        getStaticDependencies = zeroDependencies
     }
 
     let PathTileBehavior = {
@@ -62,7 +56,7 @@ module Behavior =
             emit (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
         
         update = justAccept
-        getDependencies = zeroDependencies
+        getStaticDependencies = zeroDependencies
     }
 
     let ButtonTileBehavior = {
@@ -75,7 +69,7 @@ module Behavior =
             context |> (PathTileBehavior.tryDetachEntity intent =&&=> emitEvent)
         
         update = justAccept
-        getDependencies = zeroDependencies
+        getStaticDependencies = zeroDependencies
     }
 
     let InkTileBehavior = {
@@ -97,7 +91,7 @@ module Behavior =
 
         tryDetachEntity = PathTileBehavior.tryDetachEntity
         update = justAccept
-        getDependencies = zeroDependencies
+        getStaticDependencies = zeroDependencies
     }
 
     let PinTileBehavior = {
@@ -115,7 +109,7 @@ module Behavior =
 
         tryDetachEntity = PathTileBehavior.tryDetachEntity
         update = justAccept
-        getDependencies = zeroDependencies
+        getStaticDependencies = zeroDependencies
     }
 
     let GateTileBehavior = {
@@ -143,7 +137,7 @@ module Behavior =
                 | true, false, None -> [ GateClosedEvent { gate = gate; position = tileInfo.position } ]
                 | _ -> [])
    
-        getDependencies = fun tile ->
+        getStaticDependencies = fun tile ->
             let (GateTile gate) = tile
             [ AbsoluteMapDependency gate.triggerPosition ]
     }
@@ -151,7 +145,7 @@ module Behavior =
     let TeleporterTileBehavior = {
         tryAttachEntity = PathTileBehavior.tryAttachEntity
         tryDetachEntity = PathTileBehavior.tryDetachEntity
-        getDependencies = zeroDependencies
+        getStaticDependencies = zeroDependencies
         update = fun intent context ->
             let tileEntry = context.map.getAt intent.position
             let (TeleporterTile teleporter) = tileEntry.tile
@@ -234,7 +228,7 @@ module Behavior =
             context |> (validateExit =&&=> emitEvent)
 
         update = justAccept
-        getDependencies = zeroDependencies
+        getStaticDependencies = zeroDependencies
     }
 
     let PistonTileBehavior = {
@@ -255,51 +249,60 @@ module Behavior =
             let (PistonTile piston) = tileInfo.tile
             
             let extendPiston (ctx: IntentContext) =
-                let pistonEntity =
-                    match tileInfo.entityId with
-                    | Some id -> id
-                    | None -> failwithf "Missing PistonEntity on PistonTile at '%O' while trying to extend" intent.position
-                ctx.HandleIntent (MoveEntityIntent {
-                    entityId = pistonEntity
-                    newPosition = intent.position + piston.orientation.asPoint
-                    mode = Push piston.force
-                    initiator = SomePiston
-                })
+                let tryExtend (ctx: IntentContext) =
+                    let pistonEntity =
+                        match tileInfo.entityId with
+                        | Some id -> id
+                        | None -> failwithf "Missing PistonEntity on PistonTile at '%O' while trying to extend" intent.position
+                    ctx.HandleIntent (MoveEntityIntent {
+                        entityId = pistonEntity
+                        newPosition = intent.position + piston.orientation.asPoint
+                        mode = Push piston.force
+                        initiator = SomePiston
+                    })
+
+                let emitEvent = emit (PistonExtendedEvent { position = intent.position; piston = piston })
+
+                match ctx |> (tryExtend =&&=> emitEvent) with
+                | Accepted events -> Accepted events
+                | Rejected trace ->
+                    // register dependencies on all tiles along the "push path" so that if something
+                    // changes there, 'update' is called again and the piston can try extending again
+                    let deps = trace.attemptedMoves |> List.map (snd >> AbsoluteMapDependency)
+                    Accepted [ DependenciesUpdatedEvent { position = intent.position; newDependencies = deps } ]
 
             let retractPiston (ctx: IntentContext) =
-                let neighborPosition = intent.position + piston.orientation.asPoint
-                let neighborTileInfo = context.map.getAt neighborPosition
-                let pistonEntity =
-                    match tileInfo.entityId, neighborTileInfo.entityId with
-                    | Some id, _ -> id
-                    | None, Some id -> id
-                    | None, None -> failwithf "Missing PistonEntity on PistonTile at '%O' or '%O' while trying to retract" intent.position neighborPosition
-                ctx.HandleIntent (MoveEntityIntent {
-                    entityId = pistonEntity
-                    newPosition = intent.position
-                    mode = Push 1 // no need for stronger force here (by the way, TODO: Do we need a Pull-mode?)
-                    initiator = SomePiston
-                })
+                let tryRetract (ctx: IntentContext) =
+                    let neighborPosition = intent.position + piston.orientation.asPoint
+                    let neighborTileInfo = context.map.getAt neighborPosition
+                    let pistonEntity =
+                        match tileInfo.entityId, neighborTileInfo.entityId with
+                        | Some id, _ -> id
+                        | None, Some id -> id
+                        | None, None -> failwithf "Missing PistonEntity on PistonTile at '%O' or '%O' while trying to retract" intent.position neighborPosition
+                    ctx.HandleIntent (MoveEntityIntent {
+                        entityId = pistonEntity
+                        newPosition = intent.position
+                        mode = Push 1 // no need for stronger force here (by the way, TODO: Do we need a Pull-mode?)
+                        initiator = SomePiston
+                    })
+
+                let emitEvent = emit (PistonRetractedEvent { position = intent.position; piston = piston })
+                let removeDependencies = emit (DependenciesUpdatedEvent { position = intent.position; newDependencies = [] })
+                ctx |> (tryRetract =&&=> emitEvent =&&=> removeDependencies)
             
             let isTriggerOn = (context.map.getAt piston.triggerPosition).tile |> function
                 | ButtonTile b -> b
                 | _ -> false
             
             match piston.isExtended, isTriggerOn with
-            | false, true -> context |> (extendPiston =&&=> emit (PistonExtendedEvent { position = intent.position; piston = piston }))
-            | true, false -> context |> (retractPiston =&&=> emit (PistonRetractedEvent { position = intent.position; piston = piston }))
+            | false, true -> context |> extendPiston
+            | true, false -> context |> retractPiston
             | _ -> Accepted []
 
-        getDependencies = fun tile ->
-            // Pistons have a dependency on their trigger and on all tiles along the push direction
-            // that could cause a held-back piston to extend if an entity detaches.
-            // TODO: This won't work if CornerTiles are involved (and produces unnecessarily many
-            // dependencies if there's a WallTile in the "line of sight")! Do we need some kind of
-            // raycast mechanism? Or should we just put dependencies onto all tiles in a certain radius?
+        getStaticDependencies = fun tile ->
             let (PistonTile piston) = tile
-            let neighborDeps = [1 .. piston.force] |> List.map (fun i -> RelativeMapDependency (i * piston.orientation.asPoint))
-            let triggerDep = AbsoluteMapDependency piston.triggerPosition
-            triggerDep :: neighborDeps
+            [ AbsoluteMapDependency piston.triggerPosition ]
     }
 
 

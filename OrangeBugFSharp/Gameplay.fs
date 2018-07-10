@@ -108,20 +108,17 @@ module Gameplay =
 
 
      // Intent helpers
-    let private createIntentContext map oldEvents recentEvents = {
-        mapState = map
-        map = GameMap.accessor map
-        emittedEvents = oldEvents @ recentEvents
-        recentEvents = recentEvents
-
-        doHandleIntent = handleIntent
-
-        gameMapApplyEffect = GameMap.applyEffect
-        gameMapCreateAccessor = GameMap.accessor
-    }
-
+    
     type IntentContext with
-        static member Create map = createIntentContext map [] []
+        static member Create map = {
+            mapState = map
+            map = GameMap.accessor map
+            prevResult = Accepted []
+            recentEvents = []
+            doHandleIntent = handleIntent
+            gameMapApplyEffect = GameMap.applyEffect
+            gameMapCreateAccessor = GameMap.accessor
+        }
 
     let private updateAffectedTiles (action: Point -> IntentContext -> IntentResult) context =
         let eventsToAffectedPoints evs =
@@ -129,6 +126,7 @@ module Gameplay =
             |> Seq.collect Effect.eventToEffects
             |> Seq.collect (function
                 | TileUpdateEffect e -> [ e.position ]
+                | DependenciesUpdateEffect _ -> []
                 | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
                 | EntitySpawnEffect e -> [ e.position ]
                 | EntityDespawnEffect e -> [ e.position ]
@@ -136,7 +134,8 @@ module Gameplay =
                 | SoundEffect _ -> [])
 
         // Not very functional, but works for now. TODO: Use fold and stuff, avoid mutable
-        let mutable bag = eventsToAffectedPoints context.emittedEvents |> Set.ofSeq
+        let (Accepted initialEvents) = context.prevResult
+        let mutable bag = eventsToAffectedPoints initialEvents |> Set.ofSeq
         let mutable counter = 0
         let mutable lastAcceptedIntent = context
         let mutable allEvents = []

@@ -16,9 +16,9 @@ module GameMap =
         | Some _, None -> entities.Remove id // remove entity
         | None, None -> entities
 
-    let private addDependenciesForTile tile position graph =
+    let private addDependenciesForTile tile position dynamicDeps graph =
         let behavior = Behavior.getTileBehavior tile
-        let dependencies = behavior.getDependencies tile
+        let dependencies = dynamicDeps @ behavior.getStaticDependencies tile
         dependencies |> List.fold
             (fun (g: DependencyGraph) dependency ->
                 let target =
@@ -27,7 +27,6 @@ module GameMap =
                     | AbsoluteMapDependency pos -> pos
                 g.addEdge position target)
             graph
-    
 
     // Map read access
 
@@ -73,14 +72,30 @@ module GameMap =
     // Map mutation functions
 
     let updateTile position newTile map =
+        let dynamicDeps = (map.tiles.Find position).dynamicDependencies
+
         let newDependencies =
             map.dependencies
             |> DependencyGraph.removeOutEdges position
-            |> addDependenciesForTile newTile position
+            |> addDependenciesForTile newTile position dynamicDeps
             
         let newTiles =
             map.tiles 
-            |> updateTileEntry position (fun entry -> TileEntry.Create entry.entityId newTile)
+            |> updateTileEntry position (fun entry -> { entry with tile = newTile })
+
+        { map with tiles = newTiles; dependencies = newDependencies }
+
+    let updateTileDependencies position dynamicDeps map =
+        let tile = (map.tiles.Find position).tile
+   
+        let newDependencies =
+            map.dependencies
+            |> DependencyGraph.removeOutEdges position
+            |> addDependenciesForTile tile position dynamicDeps
+
+        let newTiles =
+            map.tiles
+            |> updateTileEntry position (fun entry -> { entry with dynamicDependencies = dynamicDeps })
 
         { map with tiles = newTiles; dependencies = newDependencies }
 
@@ -150,6 +165,7 @@ module GameMap =
     let applyEffect (map: GameMapState) effect =
         match effect with
         | TileUpdateEffect e -> map |> updateTile e.position e.tile
+        | DependenciesUpdateEffect e -> map |> updateTileDependencies e.position e.newDependencies
         | EntityUpdateEffect e -> map |> updateEntity e.entityId e.entity
         | EntityMoveEffect e -> map |> moveEntity e.oldPosition e.newPosition
         | EntitySpawnEffect e -> map |> spawnEntity e.position e.entityId e.entity

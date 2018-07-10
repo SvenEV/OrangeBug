@@ -68,7 +68,9 @@ type IntentContext =
     {
         mapState: GameMapState
         map: MapAccessor
-        emittedEvents: Event list
+        
+        prevResult: IntentResult
+        //emittedEvents: Event list
         recentEvents: Event list
 
         doHandleIntent: Intent -> IntentContext -> IntentResult
@@ -85,10 +87,19 @@ module Intent =
     let trace t _ = Rejected t
 
     let applyEvents context events =
-        let newMap = events |> Seq.collect Effect.eventToEffects |> Seq.fold context.gameMapApplyEffect context.mapState
-        { context with mapState = newMap; map = context.gameMapCreateAccessor newMap; emittedEvents = context.emittedEvents @ events; recentEvents = events }
+        match context.prevResult with
+        | Rejected _ -> failwith "Cannot apply events to rejected IntentContext"
+        | Accepted oldEvents ->
+            let newMap = events |> Seq.collect Effect.eventToEffects |> Seq.fold context.gameMapApplyEffect context.mapState
+            {
+                context with 
+                    mapState = newMap
+                    map = context.gameMapCreateAccessor newMap
+                    prevResult = Accepted (oldEvents @ events)
+                    recentEvents = events
+            }
 
-    let private composeIndependent leftHandler (rightHandler: IntentContext -> IntentResult) (inContext: IntentContext) =
+    let private composeIndependent leftHandler rightHandler inContext =
         let leftResult = leftHandler inContext
         match leftResult with
         | Rejected trace ->

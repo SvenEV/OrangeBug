@@ -6,6 +6,7 @@ type PlayerRotatedEvent = { name: string; entityId: EntityId; player: PlayerEnti
 type EntityAttachedEvent = { entityId: EntityId; position: Point }
 type EntityDetachedEvent = { entityId: EntityId; position: Point }
 type EntityMovedEvent = { entityId: EntityId; oldPosition: Point; newPosition: Point }
+type DependenciesUpdatedEvent = { position: Point; newDependencies: MapDependency list }
 type ButtonPressedEvent = { position: Point }
 type ButtonReleasedEvent = { position: Point }
 type GateOpenedEvent = { position: Point; gate: GateTile }
@@ -22,6 +23,7 @@ type Event =
     | EntityAttachedEvent of EntityAttachedEvent
     | EntityDetachedEvent of EntityDetachedEvent
     | EntityMovedEvent of EntityMovedEvent
+    | DependenciesUpdatedEvent of DependenciesUpdatedEvent
     | ButtonPressedEvent of ButtonPressedEvent
     | ButtonReleasedEvent of ButtonReleasedEvent
     | GateOpenedEvent of GateOpenedEvent

@@ -4,14 +4,19 @@ open Newtonsoft.Json
 open OrangeBug.Grid
 open OrangeBug
 
+type MapDependency =
+    | RelativeMapDependency of offset: Point
+    | AbsoluteMapDependency of position: Point
+
 type TileEntry =
     {
         tile: Tile
         entityId: EntityId option
+        dynamicDependencies: MapDependency list
     }
-    static member Create entityId tile = { tile = tile; entityId = entityId }
-    static member WithEntity entityId tile = { tile = tile; entityId = Some entityId }
-    static member WithoutEntity tile = { tile = tile; entityId = None }
+    static member Create entityId tile deps = { tile = tile; entityId = entityId; dynamicDependencies = deps }
+    static member WithEntity entityId tile = { tile = tile; entityId = Some entityId; dynamicDependencies = [] }
+    static member WithoutEntity tile = { tile = tile; entityId = None;  dynamicDependencies = [] }
 
 type EntityEntry =
     {
