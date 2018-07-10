@@ -7,15 +7,15 @@ type MapDependency =
     | AbsoluteMapDependency of position: Point
 
 type TileBehavior = {
-    tryAttachEntity: AttachEntityToTileIntent -> IntentContext -> IntentContext
-    tryDetachEntity: DetachEntityFromTileIntent -> IntentContext -> IntentContext
-    update: UpdateTileIntent -> IntentContext -> IntentContext
+    tryAttachEntity: AttachEntityToTileIntent -> IntentContext -> IntentResult
+    tryDetachEntity: DetachEntityFromTileIntent -> IntentContext -> IntentResult
+    update: UpdateTileIntent -> IntentContext -> IntentResult
     getDependencies: Tile -> MapDependency list
 }
 
 type EntityBehavior = {
-    validateDetach: DetachEntityFromTileIntent -> IntentContext -> IntentContext
-    tryClearTile: ClearEntityFromTileIntent -> IntentContext -> IntentContext
+    validateDetach: DetachEntityFromTileIntent -> IntentContext -> IntentResult
+    tryClearTile: ClearEntityFromTileIntent -> IntentContext -> IntentResult
 }
 
 module Behavior =
@@ -24,10 +24,10 @@ module Behavior =
     
     // Infrastructure
     
-    let private justAccept _ (context: IntentContext) = context.Accept []
-    let private justReject _ (context: IntentContext) = context.Reject
+    let private justAccept _ _ = Accepted []
+    let private justReject _ _ = Rejected ErrorTrace.Empty
     let private zeroDependencies _ = []
-    
+
 
     // Tile behaviors
 
@@ -40,32 +40,39 @@ module Behavior =
 
     let PathTileBehavior = {
         tryAttachEntity = fun intent context ->
-            let target = context.map.getAt intent.move.newPosition
-            match target.entityId with
-                | None -> context.Accept []
+            let clearTargetTile (ctx: IntentContext) =
+                let target = context.map.getAt intent.move.newPosition
+                match target.entityId with
+                | None -> Accepted []
                 | Some entityToClear ->
                     let moveDirection =
                         match intent.move.mode with
                         | Teleport -> None
                         | Push _ -> (intent.move.newPosition - intent.oldPosition).asDirection
-                    context.HandleIntent (ClearEntityFromTileIntent { 
+                    ctx.HandleIntent (ClearEntityFromTileIntent { 
                         entityId = entityToClear
                         suggestedPushDirection = moveDirection
                         move = intent.move
                     })
 
-        tryDetachEntity = justAccept
+            let emitEvent = emit (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
+            context |> (clearTargetTile =&&=> emitEvent)
+            
+        tryDetachEntity = fun intent ->
+            emit (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
+        
         update = justAccept
         getDependencies = zeroDependencies
     }
 
     let ButtonTileBehavior = {
         tryAttachEntity = fun intent context ->
-            let emitEvent (ctx: IntentContext) = ctx.Accept [ ButtonPressedEvent { position = intent.move.newPosition } ]
+            let emitEvent = emit (ButtonPressedEvent { position = intent.move.newPosition })
             context |> (PathTileBehavior.tryAttachEntity intent =&&=> emitEvent)
 
         tryDetachEntity = fun intent context ->
-            context.Accept [ ButtonReleasedEvent { position = intent.position } ]
+            let emitEvent = emit (ButtonReleasedEvent { position = intent.position })
+            context |> (PathTileBehavior.tryDetachEntity intent =&&=> emitEvent)
         
         update = justAccept
         getDependencies = zeroDependencies
@@ -78,17 +85,17 @@ module Behavior =
                 let _, entity = ctx.map.getEntity intent.move.entityId
                 match entity with
                 | BalloonEntity _ ->
-                    ctx.Accept [
+                    Accepted [
                         BalloonColoredEvent { 
                             entityId = intent.move.entityId
                             inkPosition = intent.move.newPosition
                             color = inkColor
                         }
                     ]
-                | _ -> ctx.Accept []
+                | _ -> Accepted []
             context |> (PathTileBehavior.tryAttachEntity intent =&&=> emitEvent)
 
-        tryDetachEntity = justAccept
+        tryDetachEntity = PathTileBehavior.tryDetachEntity
         update = justAccept
         getDependencies = zeroDependencies
     }
@@ -101,13 +108,12 @@ module Behavior =
                 match entity with
                 | BalloonEntity color when color = pinColor ->
                     // TODO: Do we need to emit EntityMovedEvent before BalloonPoppedEvent?
-                    ctx.Accept [ BalloonPoppedEvent { entityId = intent.move.entityId; pinPosition = intent.move.newPosition } ]
-                | PlayerEntity _ -> ctx.Accept []
-                | _ -> ctx.Reject
-
+                    Accepted [ BalloonPoppedEvent { entityId = intent.move.entityId; pinPosition = intent.move.newPosition } ]
+                | PlayerEntity _ -> Accepted []
+                | _ -> Rejected ErrorTrace.Empty
             context |> (PathTileBehavior.tryAttachEntity intent =&&=> emitEvent)
 
-        tryDetachEntity = justAccept
+        tryDetachEntity = PathTileBehavior.tryDetachEntity
         update = justAccept
         getDependencies = zeroDependencies
     }
@@ -124,14 +130,14 @@ module Behavior =
         // When the player moves right, first the box moves right.
         // If the gate would close on box detach, the player could not move
         // onto it to keep it open.
-        tryDetachEntity = justAccept
+        tryDetachEntity = PathTileBehavior.tryDetachEntity
 
         update = fun intent context ->
             let tileInfo = (context.map.getAt intent.position)
             let (GateTile gate) = tileInfo.tile
             let gateState = gate.isOpen
             let (ButtonTile buttonState) = (context.map.getAt gate.triggerPosition).tile
-            context.Accept
+            Accepted
                 (match gateState, buttonState, tileInfo.entityId with
                 | false, true, None -> [ GateOpenedEvent { gate = gate; position = tileInfo.position } ]
                 | true, false, None -> [ GateClosedEvent { gate = gate; position = tileInfo.position } ]
@@ -144,7 +150,7 @@ module Behavior =
 
     let TeleporterTileBehavior = {
         tryAttachEntity = PathTileBehavior.tryAttachEntity
-        tryDetachEntity = justAccept
+        tryDetachEntity = PathTileBehavior.tryDetachEntity
         getDependencies = zeroDependencies
         update = fun intent context ->
             let tileEntry = context.map.getAt intent.position
@@ -154,7 +160,7 @@ module Behavior =
             | true ->
                 // teleport entity (if target is again a teleporter, temporarily deactivate)
                 match tileEntry.entityId with
-                | None -> context.Accept []
+                | None -> Accepted []
                 | Some entityId ->
                     let doTeleport (ctx: IntentContext) =
                         ctx.HandleIntent (MoveEntityIntent { 
@@ -165,21 +171,21 @@ module Behavior =
                         })
                     
                     let deactivateTargetTeleporter (ctx: IntentContext) =
-                        let targetTile = context.map.getAt teleporter.targetPosition
+                        let targetTile = ctx.map.getAt teleporter.targetPosition
                         match targetTile.tile with
                         | TeleporterTile targetTeleporter ->
-                            ctx.Accept [
+                            Accepted [
                                 TeleporterDeactivatedEvent {
                                     position = teleporter.targetPosition
                                     teleporter = targetTeleporter
                                 }
                             ]
-                        | _ -> ctx.Accept []
+                        | _ -> Accepted []
                     
                     context |> (doTeleport =&&=> deactivateTargetTeleporter)
             | false ->
                 // do not teleport but re-activate teleporter
-                context.Accept [
+                Accepted [
                     TeleporterActivatedEvent { 
                         position = intent.position
                         teleporter = teleporter
@@ -195,32 +201,37 @@ module Behavior =
             let outDirection = CornerTile.mapInToOutDirection orientation inDirection
 
             // ensure entity can't move in from a wall side of the corner (but allow teleports)
-            let validateEntry (ctx: IntentContext) =
+            let validateEntry _ =
                 match intent.move.mode, outDirection with
-                | Push _, None _ -> ctx.Reject
-                | _ -> ctx.Accept []
+                | Push _, None _ -> Rejected ErrorTrace.Empty
+                | _ -> Accepted []
             
             // empty the target tile, suggesting a move around the corner
             let clearTargetTile (ctx: IntentContext) =
                 match target.entityId with
-                    | None -> ctx.Accept []
+                    | None -> Accepted []
                     | Some entityToClear ->
                         ctx.HandleIntent (ClearEntityFromTileIntent { 
                             entityId = entityToClear
                             suggestedPushDirection = outDirection
                             move = intent.move
                         })
-
-            context |> (validateEntry =&&=> clearTargetTile)
+             
+            let emitEvent = emit (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
+            context |> (validateEntry =&&=> clearTargetTile =&&=> emitEvent)
 
         tryDetachEntity = fun intent context ->
-            let target = context.map.getAt intent.position
-            let (CornerTile orientation) = target.tile
-            let outDirection = (intent.move.newPosition - intent.position).asDirection
-            let validOutDir = CornerTile.isValidOutDirection orientation outDirection
-            match intent.move.mode, validOutDir with
-            | Push _, false -> context.Reject
-            | _ -> context.Accept []
+            let validateExit (ctx: IntentContext) =
+                let target = context.map.getAt intent.position
+                let (CornerTile orientation) = target.tile
+                let outDirection = (intent.move.newPosition - intent.position).asDirection
+                let validOutDir = CornerTile.isValidOutDirection orientation outDirection
+                match intent.move.mode, validOutDir with
+                | Push _, false -> Rejected ErrorTrace.Empty
+                | _ -> Accepted []
+            
+            let emitEvent = emit (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
+            context |> (validateExit =&&=> emitEvent)
 
         update = justAccept
         getDependencies = zeroDependencies
@@ -230,25 +241,19 @@ module Behavior =
         tryAttachEntity = fun intent context ->
             let _, entity = context.map.getEntity intent.move.entityId
             match entity with
-            | PistonEntity _ -> context.Accept[]
-            | _ -> context.Reject
+            | PistonEntity _ -> Accepted [ EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition } ]
+            | _ -> Rejected ErrorTrace.Empty
 
         tryDetachEntity = fun intent context ->
             let _, entity = context.map.getEntity intent.move.entityId
             match entity with
-            | PistonEntity _ -> context.Accept[]
-            | _ -> context.Reject
+            | PistonEntity _ -> Accepted [ EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position }]
+            | _ -> Rejected ErrorTrace.Empty
 
         update = fun intent context ->
             let tileInfo = context.map.getAt intent.position
             let (PistonTile piston) = tileInfo.tile
-            let isTriggerOn = (context.map.getAt piston.triggerPosition).tile |> function
-                | ButtonTile b -> b
-                | _ -> false
             
-            let neighborPosition = intent.position + piston.orientation.asPoint
-            let neighborTileInfo = context.map.getAt neighborPosition
-
             let extendPiston (ctx: IntentContext) =
                 let pistonEntity =
                     match tileInfo.entityId with
@@ -262,6 +267,8 @@ module Behavior =
                 })
 
             let retractPiston (ctx: IntentContext) =
+                let neighborPosition = intent.position + piston.orientation.asPoint
+                let neighborTileInfo = context.map.getAt neighborPosition
                 let pistonEntity =
                     match tileInfo.entityId, neighborTileInfo.entityId with
                     | Some id, _ -> id
@@ -274,14 +281,14 @@ module Behavior =
                     initiator = SomePiston
                 })
             
+            let isTriggerOn = (context.map.getAt piston.triggerPosition).tile |> function
+                | ButtonTile b -> b
+                | _ -> false
+            
             match piston.isExtended, isTriggerOn with
-            | false, true ->
-                context |> (extendPiston
-                    =&&=> fun ctx -> ctx.Accept [ PistonExtendedEvent { position = intent.position; piston = piston } ])
-            | true, false -> 
-                context |> (retractPiston
-                    =&&=> fun ctx -> ctx.Accept [ PistonRetractedEvent { position = intent.position; piston = piston } ])
-            | _ -> context.Accept []
+            | false, true -> context |> (extendPiston =&&=> emit (PistonExtendedEvent { position = intent.position; piston = piston }))
+            | true, false -> context |> (retractPiston =&&=> emit (PistonRetractedEvent { position = intent.position; piston = piston }))
+            | _ -> Accepted []
 
         getDependencies = fun tile ->
             // Pistons have a dependency on their trigger and on all tiles along the push direction
@@ -307,11 +314,10 @@ module Behavior =
         validateDetach = justAccept
         tryClearTile = fun intent context ->
             match intent.move.mode, intent.suggestedPushDirection with
-            | _, None -> context.Reject // box can't just disappear without moving somewhere
-            | Teleport, _ -> context.Reject // box can't be pushed away through teleportation
+            | _, None -> Rejected ErrorTrace.Empty // box can't just disappear without moving somewhere
+            | Teleport, _ -> Rejected ErrorTrace.Empty // box can't be pushed away through teleportation
             | Push force, Some dir ->
                 let position, _ = context.map.getEntity intent.entityId
-                    
                 context.HandleIntent (MoveEntityIntent {
                     entityId = intent.entityId
                     newPosition = position + dir.asPoint
@@ -329,8 +335,8 @@ module Behavior =
         validateDetach = fun intent context ->
             // piston entity can only be moved by piston tile (e.g. it can't be teleported)
             match intent.move.initiator with
-            | SomePiston -> context.Accept []
-            | _ -> context.Reject
+            | SomePiston -> Accepted []
+            | _ -> Rejected ErrorTrace.Empty
 
         tryClearTile = justReject
     }

@@ -3,6 +3,8 @@
 open OrangeBug
 
 type PlayerRotatedEvent = { name: string; entityId: EntityId; player: PlayerEntity; orientation: Direction; }
+type EntityAttachedEvent = { entityId: EntityId; position: Point }
+type EntityDetachedEvent = { entityId: EntityId; position: Point }
 type EntityMovedEvent = { entityId: EntityId; oldPosition: Point; newPosition: Point }
 type ButtonPressedEvent = { position: Point }
 type ButtonReleasedEvent = { position: Point }
@@ -17,6 +19,8 @@ type PistonRetractedEvent = { position: Point; piston: PistonTile }
 
 type Event =
     | PlayerRotatedEvent of PlayerRotatedEvent
+    | EntityAttachedEvent of EntityAttachedEvent
+    | EntityDetachedEvent of EntityDetachedEvent
     | EntityMovedEvent of EntityMovedEvent
     | ButtonPressedEvent of ButtonPressedEvent
     | ButtonReleasedEvent of ButtonReleasedEvent

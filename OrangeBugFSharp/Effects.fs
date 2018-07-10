@@ -60,6 +60,8 @@ module Effect =
 
     let eventToEffects ev =
         match ev with
+        | EntityAttachedEvent ev -> []
+        | EntityDetachedEvent ev -> []
         | EntityMovedEvent ev ->
             [ EntityMoveEffect { entityId = ev.entityId; oldPosition = ev.oldPosition; newPosition = ev.newPosition } ]
 

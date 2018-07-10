@@ -33,8 +33,9 @@ module Program =
             | None -> ()
             | Some direction ->
                 let intent = MovePlayerIntent { name = "Player"; direction = direction }
-                let result = Gameplay.processIntent intent map
-                map <- result.mapState
+                match Gameplay.processIntent intent map with
+                | Rejected trace -> printfn "INTENT FAILED! Trace: %O" trace
+                | Accepted events -> map <- events |> Seq.collect Effect.eventToEffects |> Seq.fold GameMap.applyEffect map
             
 
     let testGrid() =

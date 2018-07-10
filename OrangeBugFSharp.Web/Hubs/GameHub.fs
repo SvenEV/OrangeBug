@@ -22,10 +22,12 @@ type GameHub() =
         | None -> ()
         | Some direction ->
             let intent = MovePlayerIntent { name = "Player"; direction = direction }
-            let result = session.map |> Gameplay.processIntent intent
-            let effects = List.collect Effect.eventToEffects result.emittedEvents
-            session.map <- result.mapState
-            do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEffects", effects))
+            match Gameplay.processIntent intent session.map with
+            | Rejected _ -> ()
+            | Accepted events ->
+                let effects = events |> Seq.collect Effect.eventToEffects
+                session.map <- effects |> Seq.fold GameMap.applyEffect session.map
+                do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEffects", effects))
     }
 
     override this.OnDisconnectedAsync ex =
