@@ -29,6 +29,11 @@ class GameClient {
             this.scene.handleEffects(effects)
         })
 
+        this.connection.on("ReceiveEvents", (events: any[]) => {
+            // remember, events.forEach(this.scene.handleEvent) doesn't work for some reason
+            events.forEach(e => this.scene.handleEvent(e));
+        })
+
         window.onkeydown = ev => {
             console.info(ev.key)
 

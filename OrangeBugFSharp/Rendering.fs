@@ -8,8 +8,8 @@ module Rendering =
         match tile with
         | PathTile -> [| "   "; "   "; "   " |]
         | WallTile -> [| "███"; "███"; "███" |]
-        | ButtonTile false -> [| "┌x┐"; "│ │"; "└─┘" |]
-        | ButtonTile true -> [| "┌o┐"; "│ │"; "└─┘" |]
+        | ButtonTile { isPressed = false } -> [| "┌x┐"; "│ │"; "└─┘" |]
+        | ButtonTile { isPressed = true } -> [| "┌o┐"; "│ │"; "└─┘" |]
         | GateTile { isOpen = false } -> [| "▓▓▓"; "▓▓▓"; "▓▓▓" |]
         | GateTile { isOpen = true } -> [| "░░░"; "░░░"; "░░░" |]
         | _ -> [| "???"; "???"; "???" |]

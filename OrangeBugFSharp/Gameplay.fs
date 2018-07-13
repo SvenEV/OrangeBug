@@ -19,7 +19,7 @@ module Gameplay =
                 ctx.Accept [ PlayerRotatedEvent {
                     name = intent.name
                     entityId = playerId
-                    player = playerState
+                    player = { playerState with orientation = intent.direction }
                     orientation = intent.direction
                 } ]
 

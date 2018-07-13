@@ -63,29 +63,27 @@ module Effect =
         | EntityMovedEvent ev ->
             [ EntityMoveEffect { entityId = ev.entityId; oldPosition = ev.oldPosition; newPosition = ev.newPosition } ]
 
-        | PlayerRotatedEvent ev ->
-            let newState = { ev.player with orientation = ev.orientation }
-            [
+        | PlayerRotatedEvent ev -> [
                 SoundEffect { key = "RotatePlayer.mp3" }
-                EntityUpdateEffect { entityId = ev.entityId; entity = PlayerEntity newState }
+                EntityUpdateEffect { entityId = ev.entityId; entity = PlayerEntity ev.player }
             ]
 
         | ButtonPressedEvent ev ->
-            [ TileUpdateEffect { position = ev.position; tile = ButtonTile true }]
+            [ TileUpdateEffect { position = ev.position; tile = ButtonTile ev.button }]
 
         | ButtonReleasedEvent ev ->
-            [ TileUpdateEffect { position = ev.position; tile = ButtonTile false }]
+            [ TileUpdateEffect { position = ev.position; tile = ButtonTile ev.button }]
 
         | GateOpenedEvent ev ->
-            [ TileUpdateEffect { position = ev.position; tile = GateTile { ev.gate with isOpen = true } } ]
+            [ TileUpdateEffect { position = ev.position; tile = GateTile ev.gate } ]
 
         | GateClosedEvent ev ->
-            [ TileUpdateEffect { position = ev.position; tile = GateTile { ev.gate with isOpen = false } } ]
+            [ TileUpdateEffect { position = ev.position; tile = GateTile ev.gate } ]
 
         | BalloonColoredEvent ev ->
             [
                 SoundEffect { key = "ColorBalloon.mp3" }
-                EntityUpdateEffect { entityId = ev.entityId; entity = BalloonEntity ev.color }
+                EntityUpdateEffect { entityId = ev.entityId; entity = BalloonEntity ev.balloon }
                 TileUpdateEffect { position = ev.inkPosition; tile = PathTile }
             ]
 
@@ -96,14 +94,14 @@ module Effect =
             ]
 
         | TeleporterDeactivatedEvent ev ->
-            [ TileUpdateEffect { position = ev.position; tile = TeleporterTile { ev.teleporter with isActive = false } }]
+            [ TileUpdateEffect { position = ev.position; tile = TeleporterTile ev.teleporter }]
 
         | TeleporterActivatedEvent ev ->
-            [ TileUpdateEffect { position = ev.position; tile = TeleporterTile { ev.teleporter with isActive = true } }]
+            [ TileUpdateEffect { position = ev.position; tile = TeleporterTile ev.teleporter }]
 
         | PistonExtendedEvent ev ->
-            [ TileUpdateEffect { position = ev.position; tile = PistonTile { ev.piston with isExtended = true } } ]
+            [ TileUpdateEffect { position = ev.position; tile = PistonTile ev.piston } ]
 
         | PistonRetractedEvent ev ->
-            [ TileUpdateEffect { position = ev.position; tile = PistonTile { ev.piston with isExtended = false } } ]
+            [ TileUpdateEffect { position = ev.position; tile = PistonTile ev.piston } ]
 

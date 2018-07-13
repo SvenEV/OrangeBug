@@ -25,7 +25,8 @@ type GameHub() =
             let result = session.map |> Gameplay.processIntent intent
             let effects = List.collect Effect.eventToEffects result.emittedEvents
             session.map <- result.mapState
-            do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEffects", effects))
+            do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEvents", result.emittedEvents))
+            //do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEffects", effects))
     }
 
     override this.OnDisconnectedAsync ex =

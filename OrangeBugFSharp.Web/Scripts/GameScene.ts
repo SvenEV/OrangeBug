@@ -1,6 +1,6 @@
 ﻿import * as Three from "three"
-import { Camera, Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, MeshBasicMaterial, Mesh, TextureLoader, Texture, Audio, AudioLoader, PlaneGeometry, MeshStandardMaterial, DirectionalLight, WebGLShadowMap, ShadowMapType, PCFSoftShadowMap, DirectionalLightHelper, AmbientLight, Object3D, Geometry, Material, AudioListener, AudioBuffer, CylinderGeometry, OrthographicCamera, Euler } from "three"
-import { Tile, Entity, Effect, Point, Direction, GameMap, EntityId } from "./CommonTypes"
+import { Camera, Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, MeshBasicMaterial, Mesh, TextureLoader, Texture, Audio, AudioLoader, PlaneGeometry, MeshStandardMaterial, DirectionalLight, WebGLShadowMap, ShadowMapType, PCFSoftShadowMap, DirectionalLightHelper, AmbientLight, Object3D, Geometry, Material, AudioListener, AudioBuffer, CylinderGeometry, OrthographicCamera, Euler, AnimationClip, Vector2, Clock, Vector3, Quaternion } from "three"
+import { Tile, Entity, Effect, Point, Direction, GameMap, EntityId, GameEvent } from "./CommonTypes"
 
 class GameAssets {
 
@@ -72,7 +72,7 @@ class MeshFactory {
         if (material)
             return material
 
-        material = new MeshStandardMaterial({ map: GameAssets.getSprite(spriteKey), transparent: true });
+        material = new MeshBasicMaterial({ map: GameAssets.getSprite(spriteKey), transparent: true });
         this.materials[spriteKey] = material
         return material
     }
@@ -87,15 +87,15 @@ class MeshFactory {
             }
 
             case "InkTile": {
-                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.color + "Ink"))
+                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.state.color + "Ink"))
             }
 
             case "PinTile": {
-                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.color + "Pool"))
+                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.state.color + "Pool"))
             }
 
             case "BalloonEntity": {
-                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.color + "Ball"))
+                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.state.color + "Ball"))
             }
 
             // simple cases (mesh only depending on tile/entity type)
@@ -105,8 +105,6 @@ class MeshFactory {
                     meshGenerator = this.meshGenerators.Default
 
                 let mesh = meshGenerator()
-                mesh.castShadow = true
-                mesh.receiveShadow = true
                 return mesh;
             }
         }
@@ -119,19 +117,24 @@ class TileVisual extends Object3D {
     get tile() { return this._tile }
 
     set tile(value) {
-        this.remove(this.children[0])
-        this.add(MeshFactory.getMesh(value))
         this._tile = value
+        this.updateVisual()
+    }
 
-        if (value.$type === "CornerTile") {
-            switch (value.orientation) {
+    updateVisual() {
+        let tile = this._tile
+        this.remove(this.children[0])
+        this.add(MeshFactory.getMesh(tile))
+
+        if (tile.$type === "CornerTile") {
+            switch (tile.state.orientation) {
                 case "West": this.setRotationFromEuler(new Euler(0, 0, 0)); break;
                 case "North": this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break;
                 case "East": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break;
                 case "South": this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break;
             }
-        } else if (value.$type === "PistonTile") {
-            switch (value.orientation) {
+        } else if (tile.$type === "PistonTile") {
+            switch (tile.state.orientation) {
                 case "North": this.setRotationFromEuler(new Euler(0, 0, 0)); break;
                 case "East": this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break;
                 case "South": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break;
@@ -159,27 +162,34 @@ class TileVisual extends Object3D {
 
 class EntityVisual extends Object3D {
     private _entity: Entity
+    private _mapPosition: Point
+    private _orientation: Direction
 
     get entity() { return this._entity }
 
     set entity(value) {
-        this.remove(this.children[0])
-        this.add(MeshFactory.getMesh(value))
         this._entity = value
+        this.updateVisual()
+    }
 
-        if (value.$type === "PlayerEntity") {
-            switch (value.state.orientation) {
-                case "North": this.setRotationFromEuler(new Euler(0, 0, 0)); break
-                case "East": this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break
-                case "South": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break
-                case "West": this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break
+    updateVisual() {
+        let entity = this._entity
+        this.remove(this.children[0])
+        this.add(MeshFactory.getMesh(entity))
+
+        if (entity.$type === "PlayerEntity") {
+            switch (entity.state.orientation) {
+                case Direction.North: this.setRotationFromEuler(new Euler(0, 0, 0)); break
+                case Direction.East: this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break
+                case Direction.South: this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break
+                case Direction.West: this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break
             }
-        } else if (value.$type === "PistonEntity") {
-            switch (value.orientation) {
-                case "North": this.setRotationFromEuler(new Euler(0, 0, 0)); break
-                case "East": this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break
-                case "South": this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break
-                case "West": this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break
+        } else if (entity.$type === "PistonEntity") {
+            switch (entity.state.orientation) {
+                case Direction.North: this.setRotationFromEuler(new Euler(0, 0, 0)); break
+                case Direction.East: this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI)); break
+                case Direction.South: this.setRotationFromEuler(new Euler(0, 0, Math.PI)); break
+                case Direction.West: this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI)); break
             }
         } else {
             this.setRotationFromEuler(new Euler(0, 0, 0))
@@ -187,17 +197,71 @@ class EntityVisual extends Object3D {
     }
 
     get mapPosition() {
-        return { x: this.position.x, y: this.position.y }
+        return this._mapPosition
     }
 
     set mapPosition(position) {
-        this.position.set(position.x, position.y, 1)
+        this._mapPosition = position
+    }
+
+    get orientation() {
+        return this._orientation
+    }
+
+    set orientation(o) {
+        this._orientation = o
     }
 
     constructor(entity: Entity, position: Point) {
         super()
         this.entity = entity
         this.mapPosition = position
+    }
+
+    update(deltaTime: number) {
+        let targetPosition = new Vector3(this._mapPosition.x, this._mapPosition.y, 1)
+        let p = this.position.lerp(targetPosition, 10 * deltaTime)
+        this.position.set(p.x, p.y, p.z)
+
+        let targetRotation: number
+        switch (this._orientation) {
+            case Direction.North: targetRotation = 0; break
+            case Direction.East: targetRotation = 1.5 * Math.PI; break
+            case Direction.South: targetRotation = Math.PI; break
+            case Direction.West: targetRotation = .5 * Math.PI; break
+        }
+
+        let rotation = EntityVisual.lerpAngle(this.rotation.z, targetRotation, 10 * deltaTime)
+        this.setRotationFromEuler(new Euler(0, 0, rotation))
+    }
+
+    private static lerpAngle(a: number, b: number, t: number) {
+        let lerp = function (a: number, b: number, t: number) {
+            return (1 - t) * a + t * b
+        }
+
+        let result;
+        let diff = b - a;
+        if (diff < -Math.PI) {
+            // lerp upwards past 2 * Math.PI
+            b += 2 * Math.PI;
+            result = lerp(a, b, t);
+            if (result >= 2 * Math.PI)
+                result -= 2 * Math.PI;
+        }
+        else if (diff > Math.PI) {
+            // lerp downwards past 0
+            b -= 2 * Math.PI;
+            result = lerp(a, b, t);
+            if (result < 0)
+                result += 2 * Math.PI;
+        }
+        else {
+            // straight lerp
+            result = lerp(a, b, t);
+        }
+
+        return result;
     }
 }
 
@@ -236,6 +300,7 @@ export class GameScene {
     readonly scene = new Scene()
     readonly camera: OrthographicCamera
     readonly renderer = new WebGLRenderer()
+    readonly clock = new Clock(false)
 
     constructor(map: GameMap) {
 
@@ -246,8 +311,6 @@ export class GameScene {
 
         // init renderer
         this.renderer.setPixelRatio(window.devicePixelRatio)
-        this.renderer.shadowMap.enabled = true
-        this.renderer.shadowMap.type = PCFSoftShadowMap // default THREE.PCFShadowMap
         document.body.appendChild(this.renderer.domElement)
 
         // init camera
@@ -256,13 +319,7 @@ export class GameScene {
         this.camera.add(audioListener)
 
         // init lights
-        let light = new DirectionalLight(0xffffff, .5)
-        light.position.z = 3
-        light.castShadow = true
-        light.target.position.set(2, 0, 0)
-        this.scene.add(light)
-        this.scene.add(light.target)
-        this.scene.add(new AmbientLight(0xffffff, .6))
+        this.scene.add(new AmbientLight(0xffffff, 2))
 
         // init map
         this.map = map
@@ -271,10 +328,13 @@ export class GameScene {
         this.mapSceneInfo.entities.forEach(e => this.scene.add(e.value));
 
         this.adjustForWindowSize()
+        this.clock.start()
         this.runGameLoop()
     }
 
     private runGameLoop() {
+        let deltaTime = this.clock.getDelta()
+        this.mapSceneInfo.entities.forEach(kvp => kvp.value.update(deltaTime))
         this.renderer.render(this.scene, this.camera)
         requestAnimationFrame(() => this.runGameLoop())
     }
@@ -298,9 +358,44 @@ export class GameScene {
         this.camera.updateProjectionMatrix()
     }
 
+    handleEvent(event: GameEvent) {
+        switch (event.$type) {
+            case "EntityMovedEvent": {
+                let entityVisual = this.mapSceneInfo.getEntity(event.props.entityId)
+                entityVisual.value.mapPosition = event.props.newPosition
+                break
+            }
+
+            case "PlayerRotatedEvent": {
+                let entityVisual = this.mapSceneInfo.getEntity(event.props.entityId)
+                entityVisual.value.orientation = event.props.orientation
+                break
+            }
+
+            case "GateOpenedEvent":
+            case "GateClosedEvent": {
+                let tileVisual = this.mapSceneInfo.getTileAt(event.props.position)
+                tileVisual.tile.state = event.props.gate
+                tileVisual.updateVisual()
+                break
+            }
+
+            case "BalloonColoredEvent": {
+                let entityVisual = this.mapSceneInfo.getEntity(event.props.entityId)
+                entityVisual.value.entity.state = event.props.balloon
+                entityVisual.value.updateVisual()
+                let tileVisual = this.mapSceneInfo.getTileAt(event.props.inkPosition)
+                tileVisual.tile = { $type: "PathTile", state: null }
+            }
+
+            default:
+                console.warn("Unhandled '" + event.$type + "': " + event)
+        }
+    }
+
     handleEffects(effects: Effect[]) {
         effects.forEach(async effect => {
-            switch (effect["$type"]) {
+            switch (effect.$type) {
                 case "TileUpdateEffect": {
                     let tileVisual = this.mapSceneInfo.getTileAt(effect.props.position)
                     tileVisual.tile = effect.props.tile

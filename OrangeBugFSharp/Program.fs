@@ -42,13 +42,13 @@ module Program =
 
         let grid = Grid.empty (Point.create 10 10)
         
-        let grid = grid |> Grid.add (Point.create 0 0) (ButtonTile false)
+        let grid = grid |> Grid.add (Point.create 0 0) (ButtonTile { isPressed = false })
         printGrid grid
         let grid = grid |> Grid.add (Point.create 8 2) WallTile
         printGrid grid
         let grid = grid |> Grid.add (Point.create 9 2) WallTile
         printGrid grid
-        let grid2 = grid |> Grid.add (Point.create 8 2) (ButtonTile true)
+        let grid2 = grid |> Grid.add (Point.create 8 2) (ButtonTile { isPressed = true })
         printGrid grid2
 
         let oldResult = grid |> Grid.tryFind (Point.create 8 2)

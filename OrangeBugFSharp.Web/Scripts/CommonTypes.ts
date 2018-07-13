@@ -1,8 +1,7 @@
-﻿type UnionCase = { $type: string, [key: string]: any }
-
-export type Tile = UnionCase
-export type Entity = UnionCase
-export type Effect = UnionCase
+﻿export type Tile = { $type: string, state: { [key: string]: any } }
+export type Entity = { $type: string, state: { [key: string]: any } }
+export type Effect = { $type: string, props: { [key: string]: any } }
+export type GameEvent = { $type: string, props: { [key: string]: any } }
 
 export class Point {
     x: number

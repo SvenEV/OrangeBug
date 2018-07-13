@@ -12,7 +12,19 @@ type EntityId =
         { id = EntityId.nextEntityId }
 
 // Tiles
-    
+
+type InkTile = {
+    color: InkColor
+}
+
+type PinTile = {
+    color: InkColor
+}
+
+type ButtonTile = {
+    isPressed: bool
+}
+
 type GateTile = {
     triggerPosition: Point
     isOpen: bool
@@ -21,6 +33,10 @@ type GateTile = {
 type TeleporterTile = {
     targetPosition: Point
     isActive: bool
+}
+
+type CornerTile = {
+    orientation: Direction
 }
 
 type PistonTile = {
@@ -33,12 +49,12 @@ type PistonTile = {
 type Tile =
     | PathTile
     | WallTile
-    | InkTile of color: InkColor
-    | PinTile of color: InkColor
-    | ButtonTile of isPressed: bool
+    | InkTile of state: InkTile
+    | PinTile of state: PinTile
+    | ButtonTile of state: ButtonTile
     | GateTile of state: GateTile
     | TeleporterTile of state: TeleporterTile
-    | CornerTile of orientation: Direction
+    | CornerTile of state: CornerTile
     | PistonTile of state: PistonTile
 
 module CornerTile =
@@ -72,11 +88,19 @@ type PlayerEntity = {
     orientation: Direction
 }
 
+type BalloonEntity = {
+    color: InkColor
+}
+
+type PistonEntity = {
+    orientation: Direction
+}
+
 type Entity =
     | PlayerEntity of state: PlayerEntity
     | BoxEntity
-    | BalloonEntity of color: InkColor
-    | PistonEntity of orientation: Direction
+    | BalloonEntity of state: BalloonEntity
+    | PistonEntity of state: PistonEntity
 
     
 type TileInfo = {
