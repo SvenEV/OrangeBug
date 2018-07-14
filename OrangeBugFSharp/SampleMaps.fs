@@ -23,6 +23,6 @@ module SampleMaps =
         |> GameMap.updateTile (Point.create 2 1) (TeleporterTile { targetPosition = Point.create 2 2; isActive = true })
         |> GameMap.updateTile (Point.create 12 3) (PistonTile { orientation = North; triggerPosition = Point.create 4 4; force = 2; isExtended = false })
         |> GameMap.spawnEntity (Point.create 12 3) EntityId.create (PistonEntity { orientation = North })
-        //|> GameMap.updateTile (Point.create 12 4) (CornerTile { orientation = South })
-        |> GameMap.updateTile (Point.create 12 4) (TeleporterTile { targetPosition = Point.create 2 6; isActive = true })
+        |> GameMap.updateTile (Point.create 12 4) (CornerTile { orientation = South })
+        //|> GameMap.updateTile (Point.create 12 4) (TeleporterTile { targetPosition = Point.create 2 6; isActive = true })
         |> GameMap.spawnEntity (Point.create 12 4) EntityId.create BoxEntity

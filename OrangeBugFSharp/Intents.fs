@@ -52,53 +52,79 @@ type Intent =
 
 
 // Infrastructure
-    
-type IntentResult = IntentAccepted | IntentRejected
+
+type ErrorTrace =
+    {
+        attemptedMoves: (Point * Point) list
+    }
+    static member Empty = { attemptedMoves = [] } 
+    static member Combine t1 t2 = { attemptedMoves = t1.attemptedMoves @ t2.attemptedMoves }
+
+type IntentResult =
+    | Accepted of Event list
+    | Rejected of ErrorTrace
 
 type IntentContext =
     {
         mapState: GameMapState
         map: MapAccessor
-        emittedEvents: Event list
-        intentResult: IntentResult
+        
+        prevResult: IntentResult
+        //emittedEvents: Event list
+        recentEvents: Event list
 
-        doHandleIntent: IntentContext -> Intent -> IntentContext
-        acceptIntent: IntentContext -> Event list -> IntentContext
-        rejectIntent: IntentContext -> IntentContext
+        doHandleIntent: Intent -> IntentContext -> IntentResult
+
+        gameMapApplyEffect: GameMapState -> Effect -> GameMapState
+        gameMapCreateAccessor: GameMapState -> MapAccessor
     }
-    member this.HandleIntent = this.doHandleIntent this
-    member this.Accept = this.acceptIntent this
-    member this.Reject = this.rejectIntent this
+    member this.HandleIntent = fun intent -> this.doHandleIntent intent this
 
 module Intent =
-    let composeIndependent leftHandler rightHandler inContext =
-        if inContext.intentResult = IntentRejected then
-            failwithf "composeIndependent (=||=>) failed: Incoming context must not be rejected"
 
+    let emit ev _ = Accepted [ ev ]
+
+    let trace t _ = Rejected t
+
+    let applyEvents context events =
+        match context.prevResult with
+        | Rejected _ -> failwith "Cannot apply events to rejected IntentContext"
+        | Accepted oldEvents ->
+            let newMap = events |> Seq.collect Effect.eventToEffects |> Seq.fold context.gameMapApplyEffect context.mapState
+            {
+                context with 
+                    mapState = newMap
+                    map = context.gameMapCreateAccessor newMap
+                    prevResult = Accepted (oldEvents @ events)
+                    recentEvents = events
+            }
+
+    let private composeIndependent leftHandler rightHandler inContext =
         let leftResult = leftHandler inContext
-
-        match leftResult.intentResult with
-        | IntentRejected ->
+        match leftResult with
+        | Rejected trace ->
             // if left failed, discard its changes & handle right with previous context
-            let rightResult = rightHandler inContext
-            match rightResult.intentResult with
-            | IntentRejected -> inContext
-            | IntentAccepted -> rightResult
-        | IntentAccepted ->
+            match rightHandler inContext with
+            | Accepted _ as rightResult -> rightResult
+            | Rejected trace2 -> Rejected (ErrorTrace.Combine trace trace2)
+        | Accepted leftEvents ->
             // if left succeeded, use its result as input for the next intent
-            let rightResult = rightHandler leftResult
-            match rightResult.intentResult with
-            | IntentRejected -> leftResult
-            | IntentAccepted -> rightResult
+            let newContext = applyEvents inContext leftEvents
+            let rightResult = rightHandler newContext
+            match rightResult with
+            | Rejected _ -> leftResult
+            | Accepted rightEvents -> Accepted (leftEvents @ rightEvents)
     
-    let composeDependent leftHandler rightHandler inContext =
-        match inContext.intentResult with
-        | IntentRejected -> inContext
-        | IntentAccepted ->
-            let leftResult = leftHandler inContext
-            match leftResult.intentResult with
-            | IntentRejected -> leftResult // if left intent failed, don't handle right intent
-            | IntentAccepted -> rightHandler leftResult
+    let private composeDependent leftHandler rightHandler inContext =
+        let leftResult = leftHandler inContext
+        match leftResult with
+        | Rejected _ -> leftResult // if left intent failed, don't handle right intent
+        | Accepted leftEvents ->
+            let newContext = applyEvents inContext leftEvents
+            let rightResult = rightHandler newContext
+            match rightResult with
+            | Rejected _ -> rightResult
+            | Accepted rightEvents -> Accepted (leftEvents @ rightEvents)
 
-    let (=||=>) a b = composeIndependent a b
-    let (=&&=>) a b = composeDependent a b
+    let (=||=>) = composeIndependent
+    let (=&&=>) = composeDependent

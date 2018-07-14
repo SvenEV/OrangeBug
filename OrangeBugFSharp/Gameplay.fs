@@ -4,7 +4,7 @@ module Gameplay =
     open OrangeBug
     open OrangeBug.Game.Intent
 
-    let private handleIntent context intent =
+    let private handleIntent intent (context: IntentContext) =
         match intent with
         | UpdateTileIntent intent ->
             let tileToUpdate = context.map.getAt intent.position
@@ -15,13 +15,13 @@ module Gameplay =
             let playerId = context.map.getPlayerId intent.name
             let playerPos, (PlayerEntity playerState) = context.map.getEntity playerId
             
-            let rotatePlayer (ctx: IntentContext) =
-                ctx.Accept [ PlayerRotatedEvent {
+            let rotatePlayer =
+                emit (PlayerRotatedEvent {
                     name = intent.name
                     entityId = playerId
                     player = { playerState with orientation = intent.direction }
                     orientation = intent.direction
-                } ]
+                })
 
             let movePlayer (ctx: IntentContext) =
                 ctx.HandleIntent (MoveEntityIntent {
@@ -35,13 +35,11 @@ module Gameplay =
 
         | MoveEntityIntent intent ->
             let oldPosition, _ = context.map.getEntity intent.entityId
-            let target = context.map.getAt intent.newPosition
-            let offset = intent.newPosition - oldPosition
 
-            let validateForce (ctx: IntentContext) =
+            let validateForce _ =
                 match intent.mode with
-                | Push 0 -> ctx.Reject
-                | _ -> ctx.Accept []
+                | Push 0 -> Rejected ErrorTrace.Empty
+                | _ -> Accepted []
 
             let detachFromSource (ctx: IntentContext) =
                 ctx.HandleIntent (DetachEntityFromTileIntent {
@@ -49,29 +47,49 @@ module Gameplay =
                     move = intent
                 })
 
+            let validateDetached (ctx: IntentContext) =
+                let expected = EntityDetachedEvent { entityId = intent.entityId; position = oldPosition }
+                match ctx.recentEvents |> List.contains expected with
+                | true -> Accepted []
+                | false -> Rejected ErrorTrace.Empty
+
             let attachToTarget (ctx: IntentContext) =
                 ctx.HandleIntent (AttachEntityToTileIntent {
                     oldPosition = oldPosition
                     move = intent
                 })
 
+            let validateAttached (ctx: IntentContext) =
+                let expected = EntityAttachedEvent { entityId = intent.entityId; position = intent.newPosition }
+                match ctx.recentEvents |> List.contains expected with
+                | true -> Accepted []
+                | false -> Rejected ErrorTrace.Empty
+
             let emitEvent (ctx: IntentContext) =
                 // check if entity still exists at target
                 // (might have been destroyed during attach, see PinTileBehavior)
                 match ctx.map.hasEntity intent.entityId with
                 | true ->
-                    ctx.Accept [ EntityMovedEvent { 
+                    Accepted [ EntityMovedEvent { 
                         entityId = intent.entityId
                         oldPosition = oldPosition
                         newPosition = intent.newPosition
                     } ]
                 | false ->
-                    ctx.Accept []
+                    Accepted []
 
-            context |> (validateForce
-                =&&=> detachFromSource
+            let all = (detachFromSource 
+                =&&=> validateDetached
                 =&&=> attachToTarget
+                =&&=> validateAttached
+                =&&=> validateForce
                 =&&=> emitEvent)
+
+            let traceError = Intent.trace { attemptedMoves = [ oldPosition, intent.newPosition ] }
+
+            // If 'all' succeeds, '=||=>' will invoke 'traceError' but discard its result and return 'Accepted'
+            // If 'all' fails, we will get a useful error trace thanks to 'traceError'
+            context |> (all =||=> traceError)
 
         | ClearEntityFromTileIntent intent ->
             let _, entity = context.map.getEntity intent.entityId
@@ -90,35 +108,25 @@ module Gameplay =
 
 
      // Intent helpers
-
-    let rec private accept context events =
-        let newMap = events |> Seq.collect Effect.eventToEffects |> Seq.fold GameMap.applyEffect context.mapState
-        createIntentContext newMap (context.emittedEvents @ events) IntentAccepted
-
-    and private reject context =
-        createIntentContext context.mapState context.emittedEvents IntentRejected
-
-    and private createIntentContext map events intentResult = {
-        mapState = map
-        map = GameMap.accessor map
-        emittedEvents = events
-        intentResult = intentResult
-
-        doHandleIntent = handleIntent
-        acceptIntent = accept
-        rejectIntent = reject
-    }
-
+    
     type IntentContext with
-        static member Create map = createIntentContext map [] IntentAccepted
+        static member Create map = {
+            mapState = map
+            map = GameMap.accessor map
+            prevResult = Accepted []
+            recentEvents = []
+            doHandleIntent = handleIntent
+            gameMapApplyEffect = GameMap.applyEffect
+            gameMapCreateAccessor = GameMap.accessor
+        }
 
-    let private updateAffectedTiles (action: Point -> IntentContext -> IntentContext) context =
-
+    let private updateAffectedTiles (action: Point -> IntentContext -> IntentResult) context =
         let eventsToAffectedPoints evs =
             evs
             |> Seq.collect Effect.eventToEffects
             |> Seq.collect (function
                 | TileUpdateEffect e -> [ e.position ]
+                | DependenciesUpdateEffect _ -> []
                 | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
                 | EntitySpawnEffect e -> [ e.position ]
                 | EntityDespawnEffect e -> [ e.position ]
@@ -126,9 +134,11 @@ module Gameplay =
                 | SoundEffect _ -> [])
 
         // Not very functional, but works for now. TODO: Use fold and stuff, avoid mutable
-        let mutable bag = eventsToAffectedPoints context.emittedEvents |> Set.ofSeq
+        let (Accepted initialEvents) = context.prevResult
+        let mutable bag = eventsToAffectedPoints initialEvents |> Set.ofSeq
         let mutable counter = 0
         let mutable lastAcceptedIntent = context
+        let mutable allEvents = []
 
         let todoPoints = seq {
             for p in bag do
@@ -141,24 +151,21 @@ module Gameplay =
                 failwithf "dependency cycle detected while updating tiles"
 
             counter <- counter + 1
-
             let current = Seq.head todoPoints
 
-            let updateResult = action current lastAcceptedIntent
-            let updateEvents =
-                Set.difference
-                    (Set.ofSeq updateResult.emittedEvents)
-                    (Set.ofSeq lastAcceptedIntent.emittedEvents)
-
-            if updateResult.intentResult = IntentAccepted then
+            match action current lastAcceptedIntent with
+            | Rejected _ -> ()
+            | Accepted events ->
                 // Add (1) points affected by the tile update, and (2) points depending on the updated point
-                bag <- updateEvents |> eventsToAffectedPoints |> Seq.fold (fun b p -> b.Add p) bag
-                bag <- updateResult.map.getPositionsDependentOn current |> Seq.fold (fun b p -> b.Add p) bag
-                lastAcceptedIntent <- updateResult
+                let newContext = Intent.applyEvents lastAcceptedIntent events
+                bag <- events |> eventsToAffectedPoints |> Seq.fold (fun b p -> b.Add p) bag
+                bag <- newContext.map.getPositionsDependentOn current |> Seq.fold (fun b p -> b.Add p) bag
+                lastAcceptedIntent <- newContext
+                allEvents <- allEvents @ events
             
             bag <- bag.Remove current
             
-        lastAcceptedIntent
+        Accepted allEvents
 
     let processIntent intent map =
         let doIntent (ctx: IntentContext) =

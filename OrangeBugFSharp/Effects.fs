@@ -22,6 +22,11 @@ type TileUpdateEffect = {
     tile: Tile
 }
 
+type DependenciesUpdateEffect = {
+    position: Point
+    newDependencies: MapDependency list
+}
+
 type EntityUpdateEffect = {
     entityId: EntityId
     entity: Entity
@@ -50,6 +55,7 @@ type SoundEffect = {
 
 type Effect =
     | TileUpdateEffect of props: TileUpdateEffect
+    | DependenciesUpdateEffect of props: DependenciesUpdateEffect
     | EntityUpdateEffect of props: EntityUpdateEffect
     | EntitySpawnEffect of props: EntitySpawnEffect
     | EntityDespawnEffect of props: EntityDespawnEffect
@@ -60,8 +66,13 @@ module Effect =
 
     let eventToEffects ev =
         match ev with
+        | EntityAttachedEvent ev -> []
+        | EntityDetachedEvent ev -> []
         | EntityMovedEvent ev ->
             [ EntityMoveEffect { entityId = ev.entityId; oldPosition = ev.oldPosition; newPosition = ev.newPosition } ]
+
+        | DependenciesUpdatedEvent ev ->
+            [ DependenciesUpdateEffect { position = ev.position; newDependencies = ev.newDependencies }]
 
         | PlayerRotatedEvent ev -> [
                 SoundEffect { key = "RotatePlayer.mp3" }
