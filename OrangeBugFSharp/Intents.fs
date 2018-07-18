@@ -68,13 +68,11 @@ type IntentContext =
     {
         mapState: GameMapState
         map: MapAccessor
-        
+
         prevResult: IntentResult
-        //emittedEvents: Event list
         recentEvents: Event list
 
         doHandleIntent: Intent -> IntentContext -> IntentResult
-
         gameMapApplyEffect: GameMapState -> Effect -> GameMapState
         gameMapCreateAccessor: GameMapState -> MapAccessor
     }

@@ -6,13 +6,18 @@ module Rendering =
 
     let tileAsString tile =
         match tile with
-        | PathTile -> [| "   "; "   "; "   " |]
-        | WallTile -> [| "███"; "███"; "███" |]
-        | ButtonTile { isPressed = false } -> [| "┌x┐"; "│ │"; "└─┘" |]
-        | ButtonTile { isPressed = true } -> [| "┌o┐"; "│ │"; "└─┘" |]
-        | GateTile { isOpen = false } -> [| "▓▓▓"; "▓▓▓"; "▓▓▓" |]
-        | GateTile { isOpen = true } -> [| "░░░"; "░░░"; "░░░" |]
-        | _ -> [| "???"; "???"; "???" |]
+        | PathTile -> [| "     "; "     "; "     " |]
+        | WallTile -> [| "█████"; "█████"; "█████" |]
+        | ButtonTile { isPressed = false } -> [| "┌-x-┐"; "│   │"; "└───┘" |]
+        | ButtonTile { isPressed = true } -> [| "┌-o-┐"; "│   │"; "└───┘" |]
+        | GateTile { isOpen = false } -> [| "▓▓▓▓▓"; "▓▓▓▓▓"; "▓▓▓▓▓" |]
+        | GateTile { isOpen = true } -> [| "░░░░░"; "░░░░░"; "░░░░░" |]
+        | TeleporterTile _ -> [| " *** "; "*   *"; " *** " |]
+        | CornerTile { orientation = North } -> [| "||   "; "||   "; "\\====" |]
+        | CornerTile { orientation = East } -> [| "/===="; "||   "; "||   " |]
+        | CornerTile { orientation = South } -> [| "====\\"; "   ||"; "   ||" |]
+        | CornerTile { orientation = West } -> [| "   ||"; "   ||"; "====/" |]
+        | _ -> [| " ??? "; "?????"; " ??? " |]
 
     let entityAsString (map: GameMapState) entityId =
         match entityId with
@@ -34,7 +39,7 @@ module Rendering =
         let rowAsString row =
             String.concat "\n" [
                 Seq.map (fun (t: TileInfo) -> (tileAsString t.tile).[0]) row |> String.concat " "
-                Seq.map (fun (t: TileInfo) -> [(tileAsString t.tile).[1].[0]; (entityAsString map t.entityId).[0]; (tileAsString t.tile).[1].[0]] |> Array.ofList |> String) row |> String.concat " "
+                Seq.map (fun (t: TileInfo) -> [(tileAsString t.tile).[1].[0]; (tileAsString t.tile).[1].[1]; (entityAsString map t.entityId).[0]; (tileAsString t.tile).[1].[3]; (tileAsString t.tile).[1].[4] ] |> Array.ofList |> String) row |> String.concat " "
                 Seq.map (fun (t: TileInfo) -> (tileAsString t.tile).[2]) row |> String.concat " "
             ]
 

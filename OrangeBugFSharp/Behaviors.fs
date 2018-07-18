@@ -32,6 +32,13 @@ module Behavior =
         getStaticDependencies = zeroDependencies
     }
 
+    let LockedTileBehavior = {
+        tryAttachEntity = justReject
+        tryDetachEntity = justReject
+        update = justReject // practically, accepting or rejecting doesn't make a difference in 'update'
+        getStaticDependencies = zeroDependencies
+    }
+
     let PathTileBehavior = {
         tryAttachEntity = fun intent context ->
             let clearTargetTile (ctx: IntentContext) =
@@ -351,6 +358,7 @@ module Behavior =
         match tile with
         | PathTile _ -> PathTileBehavior
         | WallTile _ -> WallTileBehavior
+        | LockedTile _ -> LockedTileBehavior
         | InkTile _ -> InkTileBehavior
         | PinTile _ -> PinTileBehavior
         | ButtonTile _ -> ButtonTileBehavior

@@ -8,36 +8,43 @@ module Program =
     open OrangeBug.Grid
 
     let runGame() =
-        let mutable map = SampleMaps.createInitialMap()
+        let mutable simulation = Simulation.create (SampleMaps.createInitialMap())
 
         Console.OutputEncoding <- Encoding.UTF8
 
         while true do
             Console.Clear ()
-            Console.WriteLine (Rendering.mapAsString map)
-            Console.WriteLine (map.tiles |> Grid.asCharBitmap |> CharBitmap.toString)
+            Console.WriteLine (sprintf "Time: %i - %i events scheduled (up to time %i)" simulation.time.value simulation.scheduledEvents.Length (if simulation.scheduledEvents.Length = 0 then -1 else (Seq.maxBy (fun (ev: ScheduledEvent) -> ev.time.value) simulation.scheduledEvents).time.value))
+            Console.WriteLine (Rendering.mapAsString simulation.map)
+            //Console.WriteLine (simulation.map.tiles |> Grid.asCharBitmap |> CharBitmap.toString)
             let key = Console.ReadKey()
 
-            if key.Key = ConsoleKey.Escape then
-                Environment.Exit(0)
-            
-            let direction =
-                match key.KeyChar with
-                | 'a' -> Some Direction.West
-                | 'd' -> Some Direction.East
-                | 's' -> Some Direction.South
-                | 'w' -> Some Direction.North
-                | _ -> None
+            match key.Key with
+            | ConsoleKey.Escape -> Environment.Exit(0)
+            | ConsoleKey.Enter ->
+                // advance simulation by 1 tick
+                let newSim, events = Simulation.advance simulation
+                simulation <- newSim
+            | _ ->
+                let direction =
+                    match key.KeyChar with
+                    | 'a' -> Some Direction.West
+                    | 'd' -> Some Direction.East
+                    | 's' -> Some Direction.South
+                    | 'w' -> Some Direction.North
+                    | _ -> None
 
-            match direction with
-            | None -> ()
-            | Some direction ->
-                let intent = MovePlayerIntent { name = "Player"; direction = direction }
-                match Gameplay.processIntent intent map with
-                | Rejected trace -> printfn "INTENT FAILED! Trace: %O" trace
-                | Accepted events -> map <- events |> Seq.collect Effect.eventToEffects |> Seq.fold GameMap.applyEffect map
-            
+                match direction with
+                | None -> ()
+                | Some direction ->
+                    // move player
+                    let intent = MovePlayerIntent { name = "Player"; direction = direction }
+                    simulation <- Simulation.processIntent intent simulation
+                    // advance simulation by 1 tick
+                    let newSim, _ = Simulation.advance simulation
+                    simulation <- newSim
 
+            
     let testGrid() =
         let printGrid grid = Grid.asCharBitmap grid |> CharBitmap.toString |> printfn "%s\n"
 

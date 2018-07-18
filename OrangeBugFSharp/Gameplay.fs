@@ -4,7 +4,7 @@ module Gameplay =
     open OrangeBug
     open OrangeBug.Game.Intent
 
-    let private handleIntent intent (context: IntentContext) =
+    let handleIntent intent (context: IntentContext) =
         match intent with
         | UpdateTileIntent intent ->
             let tileToUpdate = context.map.getAt intent.position
@@ -109,8 +109,8 @@ module Gameplay =
 
      // Intent helpers
     
-    type IntentContext with
-        static member Create map = {
+    module IntentContext =
+        let create map = {
             mapState = map
             map = GameMap.accessor map
             prevResult = Accepted []
@@ -119,21 +119,30 @@ module Gameplay =
             gameMapApplyEffect = GameMap.applyEffect
             gameMapCreateAccessor = GameMap.accessor
         }
+        let createWithAccessor map createAccessor = {
+            mapState = map
+            map = createAccessor map
+            prevResult = Accepted []
+            recentEvents = []
+            doHandleIntent = handleIntent
+            gameMapApplyEffect = GameMap.applyEffect
+            gameMapCreateAccessor = createAccessor
+        }
 
-    let private updateAffectedTiles (action: Point -> IntentContext -> IntentResult) context =
-        let eventsToAffectedPoints evs =
-            evs
-            |> Seq.collect Effect.eventToEffects
-            |> Seq.collect (function
-                | TileUpdateEffect e -> [ e.position ]
-                | DependenciesUpdateEffect _ -> []
-                | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
-                | EntitySpawnEffect e -> [ e.position ]
-                | EntityDespawnEffect e -> [ e.position ]
-                | EntityUpdateEffect _ -> []
-                | SoundEffect _ -> [])
-
+    let eventToAffectedPoints ev =
+        Effect.eventToEffects ev
+        |> Seq.collect (function
+            | TileUpdateEffect e -> [ e.position ]
+            | DependenciesUpdateEffect _ -> []
+            | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
+            | EntitySpawnEffect e -> [ e.position ]
+            | EntityDespawnEffect e -> [ e.position ]
+            | EntityUpdateEffect _ -> []
+            | SoundEffect _ -> [])
+    
+    let iterAffectedTiles (action: Point -> IntentContext -> IntentResult) context =
         // Not very functional, but works for now. TODO: Use fold and stuff, avoid mutable
+        let eventsToAffectedPoints = Seq.collect eventToAffectedPoints
         let (Accepted initialEvents) = context.prevResult
         let mutable bag = eventsToAffectedPoints initialEvents |> Set.ofSeq
         let mutable counter = 0
@@ -165,15 +174,4 @@ module Gameplay =
             
             bag <- bag.Remove current
             
-        Accepted allEvents
-
-    let processIntent intent map =
-        let doIntent (ctx: IntentContext) =
-            ctx.HandleIntent intent
-
-        let updateTiles (ctx: IntentContext) =
-            updateAffectedTiles 
-                (fun p ctx -> ctx.HandleIntent (UpdateTileIntent { position = p }))
-                ctx
-        
-        (IntentContext.Create map) |> (doIntent =&&=> updateTiles)
+        allEvents

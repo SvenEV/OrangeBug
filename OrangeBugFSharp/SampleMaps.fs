@@ -5,7 +5,7 @@ module SampleMaps =
     open OrangeBug
 
     let createInitialMap() =
-        GameMap.create 15 8
+        GameMap.create 20 12
         |> GameMap.updateTile (Point.create 4 4) (ButtonTile { isPressed = false })
         |> GameMap.updateTile (Point.create 5 4) (GateTile { isOpen = true; triggerPosition = Point.create 4 4 })
         |> GameMap.updateTile (Point.create 5 5) (GateTile { isOpen = false; triggerPosition = Point.create 4 4 })

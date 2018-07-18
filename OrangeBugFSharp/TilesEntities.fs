@@ -49,6 +49,7 @@ type PistonTile = {
 type Tile =
     | PathTile
     | WallTile
+    | LockedTile
     | InkTile of state: InkTile
     | PinTile of state: PinTile
     | ButtonTile of state: ButtonTile

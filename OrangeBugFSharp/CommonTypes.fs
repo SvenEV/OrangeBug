@@ -7,6 +7,16 @@ type Point = { x: int; y : int }
 type InkColor = Red | Green | Blue
 type Direction = North | East | South | West
 
+type GameTimeSpan = 
+    | GameTimeSpan of int
+    member this.value = match this with GameTimeSpan v -> v
+    static member (+) (a: GameTimeSpan, b: GameTimeSpan) = GameTimeSpan (a.value + b.value)
+
+type GameTime =
+    | GameTime of int // 4 ticks per second
+    member this.value = match this with GameTime v -> v
+    static member (+) (time: GameTime, duration: GameTimeSpan) = GameTime (time.value + duration.value)
+
 [<AutoOpen>]
 module Point =
     let (|Point|) p = (p.x, p.y)

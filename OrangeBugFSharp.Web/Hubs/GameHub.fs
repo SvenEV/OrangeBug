@@ -11,7 +11,7 @@ type GameHub() =
 
     member this.Join() = async {
         let session = SessionManager.getOrCreateSession this.Context.ConnectionId
-        do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveInitialMap", session.map))
+        do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveInitialMap", session.simulation.map))
     }
 
     member this.MovePlayer(direction: string) = async {
@@ -21,14 +21,13 @@ type GameHub() =
         match direction with
         | None -> ()
         | Some direction ->
+            // move player
             let intent = MovePlayerIntent { name = "Player"; direction = direction }
-            match Gameplay.processIntent intent session.map with
-            | Rejected _ -> ()
-            | Accepted events ->
-                let effects = events |> Seq.collect Effect.eventToEffects
-                session.map <- effects |> Seq.fold GameMap.applyEffect session.map
-                do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEvents", events))
-                //do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEffects", effects))
+            session.simulation <- Simulation.processIntent intent session.simulation
+            // advance simulation by 1 tick
+            let newSim, events = Simulation.advance session.simulation
+            session.simulation <- newSim
+            do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEvents", events))
     }
 
     override this.OnDisconnectedAsync ex =

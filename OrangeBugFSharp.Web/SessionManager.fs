@@ -4,7 +4,7 @@ module SessionManager =
     open OrangeBug.Game
 
     type GameSession = {
-        mutable map: GameMapState
+        mutable simulation: Simulation
     }
 
     let mutable sessions = Map.empty<string, GameSession>
@@ -13,7 +13,7 @@ module SessionManager =
         match sessions.TryFind id with
         | Some session -> session
         | None ->
-            let newSession = { map = SampleMaps.createInitialMap() }
+            let newSession = { simulation = Simulation.create (SampleMaps.createInitialMap()) }
             sessions <- sessions |> Map.add id newSession
             newSession
             
