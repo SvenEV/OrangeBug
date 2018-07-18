@@ -139,39 +139,31 @@ module Gameplay =
             | EntityDespawnEffect e -> [ e.position ]
             | EntityUpdateEffect _ -> []
             | SoundEffect _ -> [])
-    
-    let iterAffectedTiles (action: Point -> IntentContext -> IntentResult) context =
-        // Not very functional, but works for now. TODO: Use fold and stuff, avoid mutable
-        let eventsToAffectedPoints = Seq.collect eventToAffectedPoints
-        let (Accepted initialEvents) = context.prevResult
-        let mutable bag = eventsToAffectedPoints initialEvents |> Set.ofSeq
-        let mutable counter = 0
-        let mutable lastAcceptedIntent = context
-        let mutable allEvents = []
 
-        let todoPoints = seq {
-            for p in bag do
-                if lastAcceptedIntent.map.getDependenciesOf p |> Seq.forall (bag.Contains >> not) then
-                    yield p
-        }
+    let rec updateTiles points context =
+        // taking only the subgraph with the given points, we only need to handle the leafs
+        // (the non-leaf points depend on the leafs and will therefore be updated recursively anyway)
+        let leafs = DependencyGraph.findLeafs points context.mapState.dependencies
 
-        while bag.Count > 0 do
-            if Seq.isEmpty todoPoints || counter > 1000 then
-                failwithf "dependency cycle detected while updating tiles"
+        let updateTile (ctx: IntentContext, events, newlyAffectedPoints) p =
+            match ctx.HandleIntent (UpdateTileIntent { position = p }) with
+            | Rejected _ -> ctx, events, newlyAffectedPoints
+            | Accepted newEvents ->
+                let newContext = Intent.applyEvents ctx newEvents
+                let newlyAffectedPoints = Set.unionMany [
+                    newlyAffectedPoints
+                    newEvents |> Seq.collect eventToAffectedPoints |> Set.ofSeq // tiles affected by events caused by update
+                    context.map.getPositionsDependentOn p // tiles depending on the updated tile
+                ]
+                newContext, events @ newEvents, newlyAffectedPoints
 
-            counter <- counter + 1
-            let current = Seq.head todoPoints
+        let updateContext, updateEvents, newlyAffectedPoints =
+            Seq.fold updateTile (context, [], Set.empty) leafs
 
-            match action current lastAcceptedIntent with
-            | Rejected _ -> ()
-            | Accepted events ->
-                // Add (1) points affected by the tile update, and (2) points depending on the updated point
-                let newContext = Intent.applyEvents lastAcceptedIntent events
-                bag <- events |> eventsToAffectedPoints |> Seq.fold (fun b p -> b.Add p) bag
-                bag <- newContext.map.getPositionsDependentOn current |> Seq.fold (fun b p -> b.Add p) bag
-                lastAcceptedIntent <- newContext
-                allEvents <- allEvents @ events
-            
-            bag <- bag.Remove current
-            
-        allEvents
+        let transitiveUpdateEvents =
+            match newlyAffectedPoints.Count with
+            | 0 -> []
+            | _ -> updateTiles newlyAffectedPoints updateContext
+
+        updateEvents @ transitiveUpdateEvents
+                

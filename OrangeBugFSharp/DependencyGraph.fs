@@ -41,6 +41,17 @@ module DependencyGraph =
         outEdges = graph.outEdges.Remove position
     }
 
+    /// <summary>
+    /// Finds leaf nodes in the subgraph consisting of <paramref="points" />
+    /// and the edges from <paramref="graph" />.
+    /// </summary>
+    let findLeafs points graph =
+        points
+        |> Seq.filter (fun p ->
+            match graph.outEdges.TryFind p with
+            | None -> true
+            | Some otherPoints -> (Set.intersect otherPoints points).IsEmpty)
+
 type DependencyGraph with
     static member empty = { inEdges = Map.empty; outEdges = Map.empty }
     member this.addEdge source target = DependencyGraph.addEdge source target this

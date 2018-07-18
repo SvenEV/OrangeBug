@@ -22,11 +22,8 @@ module Simulation =
     }
 
     let private eventDuration ev =
-        match ev with
-        | EntityMovedEvent _ -> GameTimeSpan 2
-        | BalloonPoppedEvent _ -> GameTimeSpan 1
-        | _ -> GameTimeSpan 0
-
+        GameTimeSpan 0 // TODO: Duration should vary by event type
+    
     let private isTileLocked p simulation =
         simulation.scheduledEvents
         |> Seq.collect (fun ev -> Gameplay.eventToAffectedPoints ev.event)
@@ -108,26 +105,16 @@ module Simulation =
                 // Fails for locked tiles, but that's ok as those will be updated anyway once they are unlocked.
                 // Updates may produce new events that are added to the schedule.
 
-                // TODO: Incorporate tile dependency graph
-
-                // Idea: tile updates should probably be independent, i.e. all "concurrent" tile updates see the same map
-                // regardless of the order how affectedPoints are processed. Update events should be concurrent.
-                // But consecutive tile updates (caused by dependencies) must see changes of prior updates and we
-                // probably want to delay them by 1 tick to ensure that 'advance' terminates in case of a dependency cycle
-                // where two tiles constantly cause each other to update.
+                // Idea: tile updates cannot run independently, i.e. looking at the same map, as that might cause
+                // incompatible/overlapping events. Update events should be concurrent though.
+                // But we probably want to delay consecutive tile updates (caused by dependencies) by 1 tick.
+                // This does NOT solve the problem of dependency cycles, though - we'd get a stack overflow.
 
                 let updateSim = { sim with map = newMap; scheduledEvents = futureEvents }
                 let updateContext = Gameplay.IntentContext.createWithAccessor newMap (mapAccessor updateSim)
-                let updateTile (ctx: IntentContext) events p =
-                    match ctx.HandleIntent (UpdateTileIntent { position = p }) with
-                    | Rejected _ -> events // tile locked probably? doesn't matter though
-                    | Accepted updateEvents -> events @ updateEvents
-
                 let updateEvents =
-                    affectedPoints
-                    |> Seq.fold (updateTile updateContext) []
-                    |> Seq.map (fun ev -> { event = ev; time = updateSim.time })
-                    |> List.ofSeq
+                    Gameplay.updateTiles affectedPoints updateContext
+                    |> List.map (fun ev -> { event = ev; time = sim.time }) // TODO: zero delay for now
 
                 eventsToApply, {
                     map = newMap
