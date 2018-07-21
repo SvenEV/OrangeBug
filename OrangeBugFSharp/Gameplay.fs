@@ -6,6 +6,7 @@ module Gameplay =
 
     let handleIntent intent (context: IntentContext) =
         match intent with
+        | NopIntent -> Accepted []
         | UpdateTileIntent intent ->
             let tileToUpdate = context.map.getAt intent.position
             let behavior = Behavior.getTileBehavior tileToUpdate.tile

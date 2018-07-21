@@ -1,6 +1,7 @@
 ﻿namespace OrangeBug.Game
 
 open OrangeBug
+open System.Threading
 
 type ScheduledEvent = {
     event: Event
@@ -13,7 +14,18 @@ type Simulation = {
     scheduledEvents: ScheduledEvent list // not sorted!
 }
 
+type SimulationClock = {
+    stop: unit -> unit
+    queueIntent: Intent -> unit
+}
+
 module Simulation =
+    open System.Diagnostics
+    open System
+    open System.Collections.Concurrent
+
+    // 1 / TickTargetTime = frames per second
+    let TickTargetTime = TimeSpan.FromSeconds 1.0
 
     let create initialMap = {
         map = initialMap
@@ -22,7 +34,10 @@ module Simulation =
     }
 
     let private eventDuration ev =
-        GameTimeSpan 0 // TODO: Duration should vary by event type
+        GameTimeSpan (match ev with
+        | EntityMovedEvent _ -> 1
+        | PlayerRotatedEvent _ -> 0
+        | _ -> 0)
     
     let private isTileLocked p simulation =
         simulation.scheduledEvents
@@ -132,3 +147,35 @@ module Simulation =
             sim <- newSim
 
         sim, processedEvents
+
+    let private runSimulation initialSimulation (cancellationToken: CancellationToken) (intentQueue: Intent ConcurrentQueue) onSimulationChanged onEvents = async {
+        let stopwatch = Stopwatch.StartNew()
+        let mutable startTime = TimeSpan.Zero
+        let mutable simulation = initialSimulation
+        
+        while not cancellationToken.IsCancellationRequested do
+            let mutable intent = NopIntent
+            while intentQueue.TryDequeue &intent do
+                simulation <- processIntent intent simulation
+                onSimulationChanged simulation
+
+            let newSim, events = advance simulation
+            simulation <- newSim
+            onSimulationChanged newSim
+            if not events.IsEmpty then onEvents (events, newSim.time)
+
+            let deltaTime = stopwatch.Elapsed - startTime
+            let waitTime = int (TickTargetTime - deltaTime).TotalMilliseconds
+            if waitTime > 0 then do! Async.Sleep waitTime
+            startTime <- stopwatch.Elapsed
+    }
+
+    let startClock initialSimulation onSimulationChanged onEvents =
+        let cancellationTokenSource = new CancellationTokenSource()
+        let intentQueue = new ConcurrentQueue<Intent>()
+        runSimulation initialSimulation cancellationTokenSource.Token intentQueue onSimulationChanged onEvents |> Async.Start
+        {
+            stop = fun () -> cancellationTokenSource.Cancel()
+            queueIntent = intentQueue.Enqueue
+        }
+    

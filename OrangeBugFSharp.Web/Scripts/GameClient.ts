@@ -25,13 +25,13 @@ class GameClient {
             window.onresize = () => this.scene.adjustForWindowSize()
         })
 
-        this.connection.on("ReceiveEffects", (effects: any[]) => {
-            this.scene.handleEffects(effects)
-        })
-
         this.connection.on("ReceiveEvents", (events: any[]) => {
             // remember, events.forEach(this.scene.handleEvent) doesn't work for some reason
-            events.forEach(e => this.scene.handleEvent(e));
+            events.forEach(e => this.scene.handleEvent(e))
+        })
+
+        this.connection.on("ReceiveTick", (time: number) => {
+            this.scene.debugText.innerText = "Time: " + time
         })
 
         window.onkeydown = ev => {

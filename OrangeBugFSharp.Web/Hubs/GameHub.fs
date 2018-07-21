@@ -6,16 +6,24 @@ open OrangeBug
 open OrangeBug.Web
 open OrangeBug.Game
 
-type GameHub() =
+type GameHub(hub: IHubContext<GameHub>) =
     inherit Hub()
 
     member this.Join() = async {
-        let session = SessionManager.getOrCreateSession this.Context.ConnectionId
-        do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveInitialMap", session.simulation.map))
+        
+        let onEvents (events: Event list, time: GameTime) =
+            hub.Clients.All.SendAsync("ReceiveEvents", events) |> ignore
+
+        let onSimulationChanged (simulation: Simulation) =
+            hub.Clients.All.SendAsync("ReceiveTick", simulation.time.value) |> ignore
+
+        let newSimulation = Simulation.create (SampleMaps.createInitialMap())
+        SessionManager.createSession this.Context.ConnectionId newSimulation onSimulationChanged onEvents |> ignore
+        do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveInitialMap", newSimulation.map))
     }
 
     member this.MovePlayer(direction: string) = async {
-        let session = SessionManager.getOrCreateSession this.Context.ConnectionId
+        let session = SessionManager.getSession this.Context.ConnectionId
         let direction = Direction.tryParse direction
 
         match direction with
@@ -23,11 +31,7 @@ type GameHub() =
         | Some direction ->
             // move player
             let intent = MovePlayerIntent { name = "Player"; direction = direction }
-            session.simulation <- Simulation.processIntent intent session.simulation
-            // advance simulation by 1 tick
-            let newSim, events = Simulation.advance session.simulation
-            session.simulation <- newSim
-            do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveEvents", events))
+            session.clock.queueIntent intent
     }
 
     override this.OnDisconnectedAsync ex =

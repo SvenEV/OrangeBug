@@ -266,9 +266,9 @@ class EntityVisual extends Object3D {
 }
 
 class GameMapSceneInfo {
-    size: Point
-    tiles: TileVisual[]
-    entities: { key: EntityId, value: EntityVisual }[]
+    readonly size: Point
+    readonly tiles: TileVisual[]
+    readonly entities: { key: EntityId, value: EntityVisual }[]
 
     getTileAt(position: Point) {
         return this.tiles[position.y * this.size.x + position.x]
@@ -301,6 +301,7 @@ export class GameScene {
     readonly camera: OrthographicCamera
     readonly renderer = new WebGLRenderer()
     readonly clock = new Clock(false)
+    readonly debugText = document.getElementById("debugText")
 
     constructor(map: GameMap) {
 
@@ -308,7 +309,7 @@ export class GameScene {
 
         GameAssets.initialize(audioListener)
         MeshFactory.initialize()
-
+        
         // init renderer
         this.renderer.setPixelRatio(window.devicePixelRatio)
         document.body.appendChild(this.renderer.domElement)
@@ -391,55 +392,5 @@ export class GameScene {
             default:
                 console.warn("Unhandled '" + event.$type + "': " + event)
         }
-    }
-
-    handleEffects(effects: Effect[]) {
-        effects.forEach(async effect => {
-            switch (effect.$type) {
-                case "TileUpdateEffect": {
-                    let tileVisual = this.mapSceneInfo.getTileAt(effect.props.position)
-                    tileVisual.tile = effect.props.tile
-                    break
-                }
-
-                case "EntitySpawnEffect": {
-                    let entity = effect.props.entity
-                    let position = effect.props.position
-                    let visual = new EntityVisual(entity, position)
-                    this.mapSceneInfo.entities.push({ key: effect.props.entityId, value: visual })
-                    this.scene.add(visual)
-                    break
-                }
-
-                case "EntityDespawnEffect": {
-                    let i = this.mapSceneInfo.entities.findIndex((e, i) => e.key.id === effect.props.entityId.id)
-                    if (i != -1) {
-                        let visual = this.mapSceneInfo.entities[i]
-                        this.mapSceneInfo.entities.splice(i, 1)
-                        this.scene.remove(visual.value)
-                    }
-                    break
-                }
-
-                case "EntityUpdateEffect": {
-                    let entityVisual = this.mapSceneInfo.getEntity(effect.props.entityId)
-                    entityVisual.value.entity = effect.props.entity
-                    break
-                }
-
-                case "EntityMoveEffect": {
-                    let entityVisual = this.mapSceneInfo.getEntity(effect.props.entityId)
-                    entityVisual.value.mapPosition = effect.props.newPosition
-                    break
-                }
-
-                case "SoundEffect": {
-                    let sound = await GameAssets.getSoundAsync("click")
-                    if (sound)
-                        sound.play()
-                    break
-                }
-            }
-        })
     }
 }

@@ -49,6 +49,7 @@ type Intent =
     | ClearEntityFromTileIntent of ClearEntityFromTileIntent
     | AttachEntityToTileIntent of AttachEntityToTileIntent
     | DetachEntityFromTileIntent of DetachEntityFromTileIntent
+    | NopIntent
 
 
 // Infrastructure
