@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}/OrangeBugFSharp/bin/Debug/netcoreapp2.1/OrangeBugFSharp.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
-            "console": "internalConsole",
+            "console": "integratedTerminal",
             "stopAtEntry": false,
             "internalConsoleOptions": "openOnSessionStart"
         },
