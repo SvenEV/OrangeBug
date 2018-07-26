@@ -30,8 +30,8 @@ class GameClient {
             events.forEach(e => this.scene.handleEvent(e))
         })
 
-        this.connection.on("ReceiveTick", (time: number) => {
-            this.scene.debugText.innerText = "Time: " + time
+        this.connection.on("ReceiveDebugText", (text: string) => {
+            this.scene.debugText.innerText = text
         })
 
         window.onkeydown = ev => {

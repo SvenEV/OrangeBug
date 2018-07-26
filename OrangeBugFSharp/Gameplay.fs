@@ -4,20 +4,43 @@ module Gameplay =
     open OrangeBug
     open OrangeBug.Game.Intent
 
+    let EntityMoveDuration = GameTimeSpan 2
+
     let handleIntent intent (context: IntentContext) =
         match intent with
         | NopIntent -> Accepted []
         | UpdateTileIntent intent ->
-            let tileToUpdate = context.map.getAt intent.position
-            let behavior = Behavior.getTileBehavior tileToUpdate.tile
-            behavior.update intent context
+            // Schedule tile updates for dependent tiles
+            let scheduleDependentUpdates (ctx: IntentContext) =
+                let scheduledUpdates =
+                    context.map.getPositionsDependentOn intent.position
+                    |> Seq.map (fun p ->
+                        {
+                            time = ctx.time
+                            duration = GameTimeSpan 0
+                            event = IntentScheduledEvent {
+                                intent = UpdateTileIntent { position = p }
+                                time = ctx.time
+                            }
+                        })
+                    |> List.ofSeq
+                Accepted scheduledUpdates
+
+            // Updating fails for locked tiles, but that's ok as those will be updated anyway once unlocked
+            let updateSelf (ctx: IntentContext) =
+                let tileToUpdate = ctx.map.getAt intent.position
+                let behavior = Behavior.getTileBehavior tileToUpdate.tile
+                behavior.update intent ctx
+
+            context |> (scheduleDependentUpdates =&&=> updateSelf)
+
 
         | MovePlayerIntent intent ->
             let playerId = context.map.getPlayerId intent.name
             let playerPos, (PlayerEntity playerState) = context.map.getEntity playerId
             
             let rotatePlayer =
-                emit (PlayerRotatedEvent {
+                emitNow 1 (PlayerRotatedEvent {
                     name = intent.name
                     entityId = playerId
                     player = { playerState with orientation = intent.direction }
@@ -30,6 +53,7 @@ module Gameplay =
                     newPosition = playerPos + intent.direction.asPoint
                     mode = Push 2
                     initiator = Other
+                    duration = EntityMoveDuration
                 })
             
             context |> (rotatePlayer =||=> movePlayer)
@@ -50,7 +74,7 @@ module Gameplay =
 
             let validateDetached (ctx: IntentContext) =
                 let expected = EntityDetachedEvent { entityId = intent.entityId; position = oldPosition }
-                match ctx.recentEvents |> List.contains expected with
+                match ctx.recentEvents |> List.exists (fun ev -> ev.event = expected) with
                 | true -> Accepted []
                 | false -> Rejected ErrorTrace.Empty
 
@@ -62,7 +86,7 @@ module Gameplay =
 
             let validateAttached (ctx: IntentContext) =
                 let expected = EntityAttachedEvent { entityId = intent.entityId; position = intent.newPosition }
-                match ctx.recentEvents |> List.contains expected with
+                match ctx.recentEvents |> List.exists (fun ev -> ev.event = expected) with
                 | true -> Accepted []
                 | false -> Rejected ErrorTrace.Empty
 
@@ -71,11 +95,11 @@ module Gameplay =
                 // (might have been destroyed during attach, see PinTileBehavior)
                 match ctx.map.hasEntity intent.entityId with
                 | true ->
-                    Accepted [ EntityMovedEvent { 
+                    ctx |> emitNow EntityMoveDuration.value (EntityMovedEvent { 
                         entityId = intent.entityId
                         oldPosition = oldPosition
                         newPosition = intent.newPosition
-                    } ]
+                    })
                 | false ->
                     Accepted []
 
@@ -108,63 +132,40 @@ module Gameplay =
             context |> (entityBehavior.validateDetach intent =&&=> tileBehavior.tryDetachEntity intent)
 
 
-     // Intent helpers
-    
-    module IntentContext =
-        let create map = {
-            mapState = map
-            map = GameMap.accessor map
-            prevResult = Accepted []
-            recentEvents = []
-            doHandleIntent = handleIntent
-            gameMapApplyEffect = GameMap.applyEffect
-            gameMapCreateAccessor = GameMap.accessor
-        }
-        let createWithAccessor map createAccessor = {
-            mapState = map
-            map = createAccessor map
-            prevResult = Accepted []
-            recentEvents = []
-            doHandleIntent = handleIntent
-            gameMapApplyEffect = GameMap.applyEffect
-            gameMapCreateAccessor = createAccessor
-        }
+    // Intent helpers
 
     let eventToAffectedPoints ev =
-        Effect.eventToEffects ev
-        |> Seq.collect (function
-            | TileUpdateEffect e -> [ e.position ]
-            | DependenciesUpdateEffect _ -> []
-            | EntityMoveEffect e -> [ e.oldPosition; e.newPosition ]
-            | EntitySpawnEffect e -> [ e.position ]
-            | EntityDespawnEffect e -> [ e.position ]
-            | EntityUpdateEffect _ -> []
-            | SoundEffect _ -> [])
+        match ev with
+        | EntityAttachedEvent e -> [ e.position ]
+        | EntityDetachedEvent e -> [ e.position ]
+        | _ ->
+            Effect.eventToEffects ev
+            |> List.collect (function
+                | TileUpdateEffect e -> [ e.position ]
+                | DependenciesUpdateEffect _ -> []
+                | EntityMoveEffect e -> []
+                | EntitySpawnEffect e -> [ e.position ]
+                | EntityDespawnEffect e -> [ e.position ]
+                | EntityUpdateEffect _ -> []
+                | SoundEffect _ -> [])
 
-    let rec updateTiles points context =
-        // taking only the subgraph with the given points, we only need to handle the leafs
-        // (the non-leaf points depend on the leafs and will therefore be updated recursively anyway)
-        let leafs = DependencyGraph.findLeafs points context.mapState.dependencies
-
-        let updateTile (ctx: IntentContext, events, newlyAffectedPoints) p =
-            match ctx.HandleIntent (UpdateTileIntent { position = p }) with
-            | Rejected _ -> ctx, events, newlyAffectedPoints
-            | Accepted newEvents ->
-                let newContext = Intent.applyEvents ctx newEvents
-                let newlyAffectedPoints = Set.unionMany [
-                    newlyAffectedPoints
-                    newEvents |> Seq.collect eventToAffectedPoints |> Set.ofSeq // tiles affected by events caused by update
-                    context.map.getPositionsDependentOn p // tiles depending on the updated tile
-                ]
-                newContext, events @ newEvents, newlyAffectedPoints
-
-        let updateContext, updateEvents, newlyAffectedPoints =
-            Seq.fold updateTile (context, [], Set.empty) leafs
-
-        let transitiveUpdateEvents =
-            match newlyAffectedPoints.Count with
-            | 0 -> []
-            | _ -> updateTiles newlyAffectedPoints updateContext
-
-        updateEvents @ transitiveUpdateEvents
-                
+    let createContext map time = {
+        mapState = map
+        map = GameMap.accessor map
+        events = []
+        recentEvents = []
+        time = time
+        doHandleIntent = handleIntent
+        gameMapApplyEffect = GameMap.applyEffect
+        gameMapCreateAccessor = GameMap.accessor
+    }
+    let createContextWithAccessor map time createAccessor = {
+        mapState = map
+        map = createAccessor map
+        events = []
+        recentEvents = []
+        time = time
+        doHandleIntent = handleIntent
+        gameMapApplyEffect = GameMap.applyEffect
+        gameMapCreateAccessor = createAccessor
+    }

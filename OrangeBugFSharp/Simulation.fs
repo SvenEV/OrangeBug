@@ -3,15 +3,17 @@
 open OrangeBug
 open System.Threading
 
-type ScheduledEvent = {
-    event: Event
+type ScheduledIntent = {
+    intent: Intent
     time: GameTime
 }
 
 type Simulation = {
     map: GameMapState
     time: GameTime
-    scheduledEvents: ScheduledEvent list // not sorted!
+    scheduledIntents: ScheduledIntent list
+    scheduledEvents: ScheduledEvent list
+    activeEvents: ScheduledEvent list
 }
 
 type SimulationClock = {
@@ -30,15 +32,11 @@ module Simulation =
     let create initialMap = {
         map = initialMap
         time = GameTime 0
+        scheduledIntents = []
         scheduledEvents = []
+        activeEvents = []
     }
 
-    let private eventDuration ev =
-        GameTimeSpan (match ev with
-        | EntityMovedEvent _ -> 1
-        | PlayerRotatedEvent _ -> 0
-        | _ -> 0)
-    
     let private isTileLocked p simulation =
         simulation.scheduledEvents
         |> Seq.collect (fun ev -> Gameplay.eventToAffectedPoints ev.event)
@@ -69,82 +67,101 @@ module Simulation =
         }
     
     /// <summary>
-    /// Processes an intent and schedules the resulting events. Time doesn't pass, the map doesn't change.
+    /// Consumes 'scheduledIntents' producing 'scheduledEvents'
     /// </summary>
-    let processIntent intent simulation =
-        let context = Gameplay.IntentContext.createWithAccessor simulation.map (mapAccessor simulation)
-        let result = context.HandleIntent intent
+    let processScheduledIntents sim =
+        let intentsToProcess, futureIntents =
+            sim.scheduledIntents |> List.partition (fun intent -> intent.time <= sim.time)
 
-        match result with
-        | Rejected _ -> simulation
-        | Accepted events ->
-            // schedule the new events. TODO: We need ways to control whether events should be running sequentially or concurrently
-            let newScheduledEvents, _ =
-                (GameTimeSpan 0, events)
-                ||> Seq.mapFold (fun timeOffset ev -> { event = ev; time = simulation.time + timeOffset }, timeOffset + eventDuration ev)
-            {
-                simulation with
-                    scheduledEvents = simulation.scheduledEvents
-                    |> Seq.append newScheduledEvents
-                    |> List.ofSeq
-            }
+        let processScheduledIntent scheduledEvents intent =
+            let context = Gameplay.createContextWithAccessor sim.map sim.time (mapAccessor sim)
+            let result = context.HandleIntent intent.intent
+            match result with
+            | Rejected _ -> scheduledEvents
+            | Accepted events -> scheduledEvents @ events
+
+        let newEvents = intentsToProcess |> Seq.fold processScheduledIntent sim.scheduledEvents
+        { sim with scheduledEvents = newEvents; scheduledIntents = futureIntents }
+
+    /// <summary>
+    /// Consumes 'scheduledEvents', updates 'map' and
+    /// produces 'activeEvents' and 'scheduledIntents' (via IntentScheduledEvent)
+    /// </summary>
+    let processScheduledEvents sim =
+        let eventsToApply, futureEvents = 
+            sim.scheduledEvents 
+            |> List.partition (fun ev -> ev.time <= sim.time)
+
+        let applyScheduledEvent (map, scheduledIntents) ev =
+            let newMap = Effect.eventToEffects ev.event |> Seq.fold GameMap.applyEffect map
+            let newIntents =
+                match ev.event with
+                | IntentScheduledEvent ev -> { intent = ev.intent :?> Intent; time = ev.time } :: scheduledIntents
+                | _ -> scheduledIntents
+            newMap, newIntents
+
+        let newMap, newIntents = eventsToApply |> Seq.fold applyScheduledEvent (sim.map, sim.scheduledIntents)
+
+        eventsToApply, {
+            sim with
+                map = newMap
+                scheduledEvents = futureEvents
+                scheduledIntents = newIntents
+                activeEvents = sim.activeEvents @ eventsToApply
+        }
+
+    /// <summary>
+    /// Consumes 'activeEvents' producing 'scheduledEvents' (tile updates).
+    /// If no event is active, 'time' is advanced by 1 tick.
+    /// </summary>
+    let processActiveEvents sim =
+        let eventsToRemove, remainingEvents =
+            sim.activeEvents
+            |> List.partition (fun ev -> ev.time.value + ev.duration.value <= sim.time.value)
+
+        match eventsToRemove with
+        | [] -> { sim with time = sim.time + (GameTimeSpan 1) }
+        | _ ->
+            // Schedule tile updates for affected tiles
+            let updateEvents =
+                eventsToRemove
+                |> Seq.collect (fun ev -> Gameplay.eventToAffectedPoints ev.event)
+                |> Set.ofSeq
+                |> Seq.map (fun p ->
+                    {
+                        time = sim.time
+                        duration = GameTimeSpan 0
+                        event = IntentScheduledEvent {
+                            intent = UpdateTileIntent { position = p }
+                            time = sim.time
+                        }
+                    })
+                |> List.ofSeq
+
+            { sim with activeEvents = remainingEvents; scheduledEvents = sim.scheduledEvents @ updateEvents }
     
     /// <summary>
-    /// Processes all events scheduled for the current time and then increases the time by 1 tick.
+    /// Processes all intents and events scheduled for the current time and then increases the time by 1 tick.
+    /// Returns a list of events that were applied.
     /// </summary>
     let advance simulation =
-        // Processes all events scheduled for the current simulation time and runs tile updates
-        // for all affected tiles. Tile updates may in turn schedule new events, even for the same
-        // time, hence multiple simulation passes may be necessary to advance the time by 1 tick.
-        // This terminates as soon as there are no more events to process in a simulation pass.
-        let runSinglePass sim =
-            let eventsToApply, futureEvents = 
-                sim.scheduledEvents 
-                |> List.partition (fun ev -> ev.time.value <= sim.time.value)
-
-            match eventsToApply.Length with
-            | 0 ->
-                // No events scheduled for now, we can advance the time
-                [], { sim with time = sim.time + (GameTimeSpan 1) }
-
-            | _ ->
-                // Apply pending events
-                let applyScheduledEvent (map, affectedPoints) ev =
-                    let newAffectedPoints = Set.union affectedPoints (Gameplay.eventToAffectedPoints ev.event |> Set.ofSeq)
-                    let newMap = Effect.eventToEffects ev.event |> Seq.fold GameMap.applyEffect map
-                    newMap, newAffectedPoints
-
-                let newMap, affectedPoints = Seq.fold applyScheduledEvent (sim.map, Set.empty) eventsToApply
-
-                // Try to update affected tiles.
-                // Fails for locked tiles, but that's ok as those will be updated anyway once they are unlocked.
-                // Updates may produce new events that are added to the schedule.
-
-                // Idea: tile updates cannot run independently, i.e. looking at the same map, as that might cause
-                // incompatible/overlapping events. Update events should be concurrent though.
-                // But we probably want to delay consecutive tile updates (caused by dependencies) by 1 tick.
-                // This does NOT solve the problem of dependency cycles, though - we'd get a stack overflow.
-
-                let updateSim = { sim with map = newMap; scheduledEvents = futureEvents }
-                let updateContext = Gameplay.IntentContext.createWithAccessor newMap (mapAccessor updateSim)
-                let updateEvents =
-                    Gameplay.updateTiles affectedPoints updateContext
-                    |> List.map (fun ev -> { event = ev; time = sim.time }) // TODO: zero delay for now
-
-                eventsToApply, {
-                    map = newMap
-                    time = updateSim.time // time doesn't advance as long as there are events to process
-                    scheduledEvents = updateEvents @ futureEvents
-                }
-
-        // simulate single passes until time has been advanced by one tick
+        // Repeat until no more 'activeEvents' are completed, hence time is advanced:
+        // 1. Process scheduled intents, resulting in new events being scheduled.
+        // 2. Apply scheduled events to map and move them into 'activeEvents'.
+        //    'IntentScheduledEvent'-s cause new intents to be scheduled.
+        // 3. Remove completed events from 'activeEvents' and schedule tile updates
+        //    for all directly affected tiles.
         let mutable sim = simulation
         let mutable processedEvents = []
 
         while sim.time = simulation.time do
-            let newEvents, newSim = runSinglePass sim
+            let newEvents, newSim =
+                sim
+                |> processScheduledIntents
+                |> processScheduledEvents
+
+            sim <- processActiveEvents newSim
             processedEvents <- processedEvents @ (newEvents |> List.map (fun ev -> ev.event))
-            sim <- newSim
 
         sim, processedEvents
 
@@ -154,16 +171,18 @@ module Simulation =
         let mutable simulation = initialSimulation
         
         while not cancellationToken.IsCancellationRequested do
-            let mutable intent = NopIntent
-            while intentQueue.TryDequeue &intent do
-                simulation <- processIntent intent simulation
-                onSimulationChanged simulation
+            // Schedule queued intents
+            let mutable intent = ref NopIntent
+            while intentQueue.TryDequeue intent do
+                simulation <- { simulation with scheduledIntents = { intent = !intent; time = simulation.time } :: simulation.scheduledIntents }
 
+            // Advance simulation
             let newSim, events = advance simulation
             simulation <- newSim
             onSimulationChanged newSim
             if not events.IsEmpty then onEvents (events, newSim.time)
 
+            // Wait until target tick time reached
             let deltaTime = stopwatch.Elapsed - startTime
             let waitTime = int (TickTargetTime - deltaTime).TotalMilliseconds
             if waitTime > 0 then do! Async.Sleep waitTime

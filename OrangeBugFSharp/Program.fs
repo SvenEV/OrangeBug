@@ -37,9 +37,12 @@ module Program =
                 match direction with
                 | None -> ()
                 | Some direction ->
-                    // move player
-                    let intent = MovePlayerIntent { name = "Player"; direction = direction }
-                    simulation <- Simulation.processIntent intent simulation
+                    // schedule player move
+                    let intent = {
+                        time = simulation.time
+                        intent = MovePlayerIntent { name = "Player"; direction = direction }
+                    }
+                    simulation <- { simulation with scheduledIntents = intent :: simulation.scheduledIntents }
                     // advance simulation by 1 tick
                     let newSim, _ = Simulation.advance simulation
                     simulation <- newSim

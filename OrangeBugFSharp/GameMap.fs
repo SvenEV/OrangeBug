@@ -178,9 +178,11 @@ module GameMap =
         {
             size = Point.create width height
             players = Map.ofList [ "Player", playerId ]
-            entities = Map.ofList [
-                playerId, EntityEntry.Create playerPos (PlayerEntity { name = "Player"; orientation = East })
-            ]
+            
+            entities = Map.ofList
+                [
+                    playerId, EntityEntry.Create playerPos (PlayerEntity { name = "Player"; orientation = East })
+                ]
             
             tiles = Grid.init (Point.create width height) (fun p ->
                 match p with

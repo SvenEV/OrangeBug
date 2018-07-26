@@ -24,6 +24,7 @@ type MoveEntityIntent = {
     newPosition: Point
     mode: TransportationMode
     initiator: MoveInitiator
+    duration: GameTimeSpan
 }
 
 type ClearEntityFromTileIntent = {
@@ -62,7 +63,7 @@ type ErrorTrace =
     static member Combine t1 t2 = { attemptedMoves = t1.attemptedMoves @ t2.attemptedMoves }
 
 type IntentResult =
-    | Accepted of Event list
+    | Accepted of ScheduledEvent list
     | Rejected of ErrorTrace
 
 type IntentContext =
@@ -70,8 +71,9 @@ type IntentContext =
         mapState: GameMapState
         map: MapAccessor
 
-        prevResult: IntentResult
-        recentEvents: Event list
+        events: ScheduledEvent list
+        recentEvents: ScheduledEvent list
+        time: GameTime
 
         doHandleIntent: Intent -> IntentContext -> IntentResult
         gameMapApplyEffect: GameMapState -> Effect -> GameMapState
@@ -81,22 +83,33 @@ type IntentContext =
 
 module Intent =
 
-    let emit ev _ = Accepted [ ev ]
+    let emit delay duration ev (context: IntentContext) =
+        Accepted [
+            {
+                event = ev
+                time = context.time + delay
+                duration = GameTimeSpan duration
+            }
+        ]
+       
+    let emitNow = emit (GameTimeSpan 0)
 
     let trace t _ = Rejected t
 
     let applyEvents context events =
-        match context.prevResult with
-        | Rejected _ -> failwith "Cannot apply events to rejected IntentContext"
-        | Accepted oldEvents ->
-            let newMap = events |> Seq.collect Effect.eventToEffects |> Seq.fold context.gameMapApplyEffect context.mapState
-            {
-                context with 
-                    mapState = newMap
-                    map = context.gameMapCreateAccessor newMap
-                    prevResult = Accepted (oldEvents @ events)
-                    recentEvents = events
-            }
+        let newMap =
+            events 
+            |> Seq.map (fun ev -> ev.event) 
+            |> Seq.collect Effect.eventToEffects
+            |> Seq.fold context.gameMapApplyEffect context.mapState
+        let allEvents = context.events @ events
+        {
+            context with 
+                mapState = newMap
+                map = context.gameMapCreateAccessor newMap
+                events = allEvents
+                recentEvents = events
+        }
 
     let private composeIndependent leftHandler rightHandler inContext =
         let leftResult = leftHandler inContext

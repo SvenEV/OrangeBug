@@ -2,6 +2,7 @@
 
 open OrangeBug
 
+type IntentScheduledEvent = { intent: obj; time: GameTime } // TODO: intent should be of 'Intent', not 'obj'
 type PlayerRotatedEvent = { name: string; entityId: EntityId; player: PlayerEntity; orientation: Direction; }
 type EntityAttachedEvent = { entityId: EntityId; position: Point }
 type EntityDetachedEvent = { entityId: EntityId; position: Point }
@@ -19,6 +20,7 @@ type PistonExtendedEvent = { position: Point; piston: PistonTile }
 type PistonRetractedEvent = { position: Point; piston: PistonTile }
 
 type Event =
+    | IntentScheduledEvent of props: IntentScheduledEvent
     | PlayerRotatedEvent of props: PlayerRotatedEvent
     | EntityAttachedEvent of props: EntityAttachedEvent
     | EntityDetachedEvent of props: EntityDetachedEvent
@@ -34,3 +36,9 @@ type Event =
     | TeleporterActivatedEvent of props: TeleporterActivatedEvent
     | PistonExtendedEvent of props: PistonExtendedEvent
     | PistonRetractedEvent of props: PistonRetractedEvent
+
+type ScheduledEvent = {
+    event: Event
+    time: GameTime
+    duration: GameTimeSpan
+}

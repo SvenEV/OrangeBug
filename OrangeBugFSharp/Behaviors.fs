@@ -1,4 +1,5 @@
 ﻿namespace OrangeBug.Game
+open OrangeBug
 
 type TileBehavior = {
     tryAttachEntity: AttachEntityToTileIntent -> IntentContext -> IntentResult
@@ -55,12 +56,12 @@ module Behavior =
                         suggestedPushDirection = moveDirection
                         move = intent.move
                     })
-
-            let emitEvent = emit (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
+                    
+            let emitEvent = emit intent.move.duration 0 (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
             context |> (clearTargetTile =&&=> emitEvent)
             
         tryDetachEntity = fun intent ->
-            emit (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
+            emitNow 0 (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
         
         update = justAccept
         getStaticDependencies = zeroDependencies
@@ -70,12 +71,13 @@ module Behavior =
         tryAttachEntity = fun intent context ->
             let emitEvent (ctx: IntentContext) =
                 let (ButtonTile button) = (ctx.map.getAt intent.move.newPosition).tile
-                Accepted [ ButtonPressedEvent { position = intent.move.newPosition; button = { button with isPressed = true } } ]
+                ctx |> emit intent.move.duration 0 (ButtonPressedEvent { position = intent.move.newPosition; button = { button with isPressed = true } })
             context |> (PathTileBehavior.tryAttachEntity intent =&&=> emitEvent)
 
         tryDetachEntity = fun intent context ->
-            let (ButtonTile button) = (context.map.getAt intent.position).tile
-            let emitEvent = emit (ButtonReleasedEvent { position = intent.position; button = { button with isPressed = false } })
+            let emitEvent (ctx: IntentContext) =
+                let (ButtonTile button) = (ctx.map.getAt intent.position).tile
+                ctx |> emitNow 0 (ButtonReleasedEvent { position = intent.position; button = { button with isPressed = false } })
             context |> (PathTileBehavior.tryDetachEntity intent =&&=> emitEvent)
         
         update = justAccept
@@ -89,14 +91,12 @@ module Behavior =
                 let _, entity = ctx.map.getEntity intent.move.entityId
                 match entity with
                 | BalloonEntity balloon ->
-                    Accepted [
-                        BalloonColoredEvent { 
-                            entityId = intent.move.entityId
-                            inkPosition = intent.move.newPosition
-                            color = inkTile.color
-                            balloon = { balloon with color = inkTile.color }
-                        }
-                    ]
+                    ctx |> emit intent.move.duration 0 (BalloonColoredEvent { 
+                        entityId = intent.move.entityId
+                        inkPosition = intent.move.newPosition
+                        color = inkTile.color
+                        balloon = { balloon with color = inkTile.color }
+                    })
                 | _ -> Accepted []
             context |> (PathTileBehavior.tryAttachEntity intent =&&=> emitEvent)
 
@@ -113,7 +113,7 @@ module Behavior =
                 match entity with
                 | BalloonEntity balloon when balloon.color = pinTile.color ->
                     // TODO: Do we need to emit EntityMovedEvent before BalloonPoppedEvent?
-                    Accepted [ BalloonPoppedEvent { entityId = intent.move.entityId; pinPosition = intent.move.newPosition } ]
+                    ctx |> emit intent.move.duration 0 (BalloonPoppedEvent { entityId = intent.move.entityId; pinPosition = intent.move.newPosition })
                 | PlayerEntity _ -> Accepted []
                 | _ -> Rejected ErrorTrace.Empty
             context |> (PathTileBehavior.tryAttachEntity intent =&&=> emitEvent)
@@ -141,11 +141,10 @@ module Behavior =
             let tileInfo = (context.map.getAt intent.position)
             let (GateTile gate) = tileInfo.tile
             let (ButtonTile button) = (context.map.getAt gate.triggerPosition).tile
-            Accepted
-                (match gate.isOpen, button.isPressed, tileInfo.entityId with
-                | false, true, None -> [ GateOpenedEvent { gate = { gate with isOpen = true }; position = tileInfo.position } ]
-                | true, false, None -> [ GateClosedEvent { gate = { gate with isOpen = false }; position = tileInfo.position } ]
-                | _ -> [])
+            match gate.isOpen, button.isPressed, tileInfo.entityId with
+            | false, true, None -> context |> emitNow 4 (GateOpenedEvent { gate = { gate with isOpen = true }; position = tileInfo.position })
+            | true, false, None -> context |> emitNow 4 (GateClosedEvent { gate = { gate with isOpen = false }; position = tileInfo.position })
+            | _ -> Accepted []
    
         getStaticDependencies = fun tile ->
             let (GateTile gate) = tile
@@ -172,29 +171,26 @@ module Behavior =
                             newPosition = teleporter.targetPosition
                             mode = Teleport
                             initiator = SomeTeleporter
+                            duration = GameTimeSpan 4
                         })
                     
                     let deactivateTargetTeleporter (ctx: IntentContext) =
                         let targetTile = ctx.map.getAt teleporter.targetPosition
                         match targetTile.tile with
                         | TeleporterTile targetTeleporter ->
-                            Accepted [
-                                TeleporterDeactivatedEvent {
-                                    position = teleporter.targetPosition
-                                    teleporter = { targetTeleporter with isActive = false }
-                                }
-                            ]
+                            ctx |> emitNow 0 (TeleporterDeactivatedEvent {
+                                position = teleporter.targetPosition
+                                teleporter = { targetTeleporter with isActive = false }
+                            })
                         | _ -> Accepted []
                     
                     context |> (doTeleport =&&=> deactivateTargetTeleporter)
             | false ->
                 // do not teleport but re-activate teleporter
-                Accepted [
-                    TeleporterActivatedEvent { 
-                        position = intent.position
-                        teleporter = { teleporter with isActive = true }
-                    }
-                ]
+                context |> emitNow 0 (TeleporterActivatedEvent { 
+                    position = intent.position
+                    teleporter = { teleporter with isActive = true }
+                })
     }
     
     let CornerTileBehavior = {
@@ -221,7 +217,7 @@ module Behavior =
                             move = intent.move
                         })
              
-            let emitEvent = emit (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
+            let emitEvent = emit intent.move.duration 0 (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
             context |> (validateEntry =&&=> clearTargetTile =&&=> emitEvent)
 
         tryDetachEntity = fun intent context ->
@@ -234,7 +230,7 @@ module Behavior =
                 | Push _, false -> Rejected ErrorTrace.Empty
                 | _ -> Accepted []
             
-            let emitEvent = emit (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
+            let emitEvent = emitNow 0 (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
             context |> (validateExit =&&=> emitEvent)
 
         update = justAccept
@@ -245,13 +241,13 @@ module Behavior =
         tryAttachEntity = fun intent context ->
             let _, entity = context.map.getEntity intent.move.entityId
             match entity with
-            | PistonEntity _ -> Accepted [ EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition } ]
+            | PistonEntity _ -> context |> emit intent.move.duration 0 (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
             | _ -> Rejected ErrorTrace.Empty
 
         tryDetachEntity = fun intent context ->
             let _, entity = context.map.getEntity intent.move.entityId
             match entity with
-            | PistonEntity _ -> Accepted [ EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position }]
+            | PistonEntity _ -> context |> emitNow 0 (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
             | _ -> Rejected ErrorTrace.Empty
 
         update = fun intent context ->
@@ -269,9 +265,10 @@ module Behavior =
                         newPosition = intent.position + piston.orientation.asPoint
                         mode = Push piston.force
                         initiator = SomePiston
+                        duration = GameTimeSpan 1
                     })
 
-                let emitEvent = emit (PistonExtendedEvent { position = intent.position; piston = { piston with isExtended = true } })
+                let emitEvent = emitNow 4 (PistonExtendedEvent { position = intent.position; piston = { piston with isExtended = true } })
 
                 match ctx |> (tryExtend =&&=> emitEvent) with
                 | Accepted events -> Accepted events
@@ -279,7 +276,7 @@ module Behavior =
                     // register dependencies on all tiles along the "push path" so that if something
                     // changes there, 'update' is called again and the piston can try extending again
                     let deps = trace.attemptedMoves |> List.map (snd >> AbsoluteMapDependency)
-                    Accepted [ DependenciesUpdatedEvent { position = intent.position; newDependencies = deps } ]
+                    ctx |> emitNow 0 (DependenciesUpdatedEvent { position = intent.position; newDependencies = deps })
 
             let retractPiston (ctx: IntentContext) =
                 let tryRetract (ctx: IntentContext) =
@@ -295,10 +292,11 @@ module Behavior =
                         newPosition = intent.position
                         mode = Push 1 // no need for stronger force here (by the way, TODO: Do we need a Pull-mode?)
                         initiator = SomePiston
+                        duration = GameTimeSpan 1
                     })
 
-                let emitEvent = emit (PistonRetractedEvent { position = intent.position; piston = { piston with isExtended = false } })
-                let removeDependencies = emit (DependenciesUpdatedEvent { position = intent.position; newDependencies = [] })
+                let emitEvent = emitNow 4 (PistonRetractedEvent { position = intent.position; piston = { piston with isExtended = false } })
+                let removeDependencies = emitNow 0 (DependenciesUpdatedEvent { position = intent.position; newDependencies = [] })
                 ctx |> (tryRetract =&&=> emitEvent =&&=> removeDependencies)
             
             let isTriggerOn = (context.map.getAt piston.triggerPosition).tile |> function
@@ -336,6 +334,7 @@ module Behavior =
                     newPosition = position + dir.asPoint
                     mode = Push (force - 1)
                     initiator = intent.move.initiator
+                    duration = intent.move.duration
                 })
     }
 

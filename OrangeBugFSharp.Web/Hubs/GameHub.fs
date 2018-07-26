@@ -15,7 +15,15 @@ type GameHub(hub: IHubContext<GameHub>) =
             hub.Clients.All.SendAsync("ReceiveEvents", events) |> ignore
 
         let onSimulationChanged (simulation: Simulation) =
-            hub.Clients.All.SendAsync("ReceiveTick", simulation.time.value) |> ignore
+            let eventsString =
+                simulation.scheduledEvents
+                |> Seq.map (fun ev -> sprintf "%s (time %i, duration %i)" (ev.event.GetType().Name) ev.time.value ev.duration.value)
+                |> String.concat "\r\n"
+
+            let text =
+                (sprintf "Time: %i\r\n%s" simulation.time.value eventsString)
+
+            hub.Clients.All.SendAsync("ReceiveDebugText", text) |> ignore
 
         let newSimulation = Simulation.create (SampleMaps.createInitialMap())
         SessionManager.createSession this.Context.ConnectionId newSimulation onSimulationChanged onEvents |> ignore

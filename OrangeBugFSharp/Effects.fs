@@ -66,15 +66,17 @@ module Effect =
 
     let eventToEffects ev =
         match ev with
-        | EntityAttachedEvent ev -> []
-        | EntityDetachedEvent ev -> []
+        | IntentScheduledEvent _ -> []
+        | EntityAttachedEvent _ -> []
+        | EntityDetachedEvent _ -> []
         | EntityMovedEvent ev ->
             [ EntityMoveEffect { entityId = ev.entityId; oldPosition = ev.oldPosition; newPosition = ev.newPosition } ]
 
         | DependenciesUpdatedEvent ev ->
             [ DependenciesUpdateEffect { position = ev.position; newDependencies = ev.newDependencies }]
 
-        | PlayerRotatedEvent ev -> [
+        | PlayerRotatedEvent ev ->
+            [
                 SoundEffect { key = "RotatePlayer.mp3" }
                 EntityUpdateEffect { entityId = ev.entityId; entity = PlayerEntity ev.player }
             ]

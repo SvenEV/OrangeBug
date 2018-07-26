@@ -15,5 +15,4 @@ module Program =
     [<EntryPoint>]
     let main args =
         BuildWebHost(args).Run()
-
         exitCode
