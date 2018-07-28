@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CommonTypes.fs" />
@@ -20,12 +19,9 @@
     <Compile Include="Rendering.fs" />
     <Compile Include="Serialization.fs" />
     <Compile Include="SampleMaps.fs" />
-    <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="4.5.0" />
   </ItemGroup>
 </Project>

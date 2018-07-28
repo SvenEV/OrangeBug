@@ -17,7 +17,7 @@ module Serialization =
 
         override __.ReadJson(reader, _, _, _, _) =
             let s = reader.ReadAsString()
-            match s.Split(",") with
+            match s.Split(',') with
             | [| sx; sy |] -> { x = int sx; y = int sy }
             | _ -> failwithf "Could not read a Point from string '%s'" s
     

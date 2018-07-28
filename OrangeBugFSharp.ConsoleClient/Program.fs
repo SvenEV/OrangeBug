@@ -1,9 +1,10 @@
-﻿namespace OrangeBug
+namespace OrangeBug.ConsoleClient
 
 module Program =
 
     open System
     open System.Text
+    open OrangeBug
     open OrangeBug.Game
     open OrangeBug.Grid
 
@@ -38,7 +39,7 @@ module Program =
                 | None -> ()
                 | Some direction ->
                     // schedule player move
-                    let intent = {
+                    let intent: ScheduledIntent = {
                         time = simulation.time
                         intent = MovePlayerIntent { name = "Player"; direction = direction }
                     }

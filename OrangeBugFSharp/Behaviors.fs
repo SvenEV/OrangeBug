@@ -1,6 +1,8 @@
 ﻿namespace OrangeBug.Game
 open OrangeBug
 
+#nowarn "25" // incomplete pattern matching
+
 type TileBehavior = {
     tryAttachEntity: AttachEntityToTileIntent -> IntentContext -> IntentResult
     tryDetachEntity: DetachEntityFromTileIntent -> IntentContext -> IntentResult
