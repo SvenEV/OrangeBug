@@ -27,7 +27,7 @@ module Simulation =
     open System.Collections.Concurrent
 
     // 1 / TickTargetTime = frames per second
-    let TickTargetTime = TimeSpan.FromSeconds 1.0
+    let TickTargetTime = TimeSpan.FromSeconds 0.25
 
     let create initialMap = {
         map = initialMap

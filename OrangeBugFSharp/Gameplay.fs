@@ -128,8 +128,11 @@ module Gameplay =
         | DetachEntityFromTileIntent intent ->
             let tileInfo = context.map.getAt intent.position
             let tileBehavior = tileInfo.tile |> Behavior.getTileBehavior
-            let entityBehavior = tileInfo.entityId.Value |> context.map.getEntity |> snd |> Behavior.getEntityBehavior
-            context |> (entityBehavior.validateDetach intent =&&=> tileBehavior.tryDetachEntity intent)
+            match tileInfo.entityId with
+            | None -> Rejected ErrorTrace.Empty
+            | Some entityId ->
+                let entityBehavior = entityId |> context.map.getEntity |> snd |> Behavior.getEntityBehavior
+                context |> (entityBehavior.validateDetach intent =&&=> tileBehavior.tryDetachEntity intent)
 
 
     // Intent helpers

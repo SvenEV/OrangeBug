@@ -1,5 +1,5 @@
 ﻿require.config({
-    baseUrl: "/js",
+    baseUrl: "/",
     paths: {
         "@aspnet": "/lib"
     },
@@ -10,6 +10,6 @@
     }
 })
 
-requirejs(["GameClient"], function (util) {
+requirejs(["OrangeBugFSharp.Web", "GameClient"], function (util) {
     // this function is called when /js/GameClient.js is loaded.
 });

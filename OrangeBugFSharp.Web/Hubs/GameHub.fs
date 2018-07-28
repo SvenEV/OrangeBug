@@ -12,7 +12,7 @@ type GameHub(hub: IHubContext<GameHub>) =
     member this.Join() = async {
         
         let onEvents (events: Event list, time: GameTime) =
-            hub.Clients.All.SendAsync("ReceiveEvents", events) |> ignore
+            hub.Clients.All.SendAsync("ReceiveEvents", events, time.value) |> ignore
 
         let onSimulationChanged (simulation: Simulation) =
             let eventsString =
@@ -27,7 +27,7 @@ type GameHub(hub: IHubContext<GameHub>) =
 
         let newSimulation = Simulation.create (SampleMaps.createInitialMap())
         SessionManager.createSession this.Context.ConnectionId newSimulation onSimulationChanged onEvents |> ignore
-        do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveInitialMap", newSimulation.map))
+        do! Async.AwaitTask(this.Clients.Caller.SendAsync("ReceiveInitialMap", newSimulation.map, newSimulation.time.value, Simulation.TickTargetTime.TotalSeconds))
     }
 
     member this.MovePlayer(direction: string) = async {

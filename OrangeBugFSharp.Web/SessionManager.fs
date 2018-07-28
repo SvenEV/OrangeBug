@@ -21,4 +21,9 @@ module SessionManager =
     let getSession id = sessions.[id]
     
     let killSession id =
-        sessions <- sessions |> Map.remove id
+        match sessions |> Map.tryFind id with
+        | Some session ->
+            session.clock.stop()
+            sessions |> Map.remove id
+        | None ->
+            sessions

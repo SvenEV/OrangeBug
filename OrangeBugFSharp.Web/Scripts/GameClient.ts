@@ -19,15 +19,15 @@ class GameClient {
             console.info(message)
         })
 
-        this.connection.on("ReceiveInitialMap", (initialMap: GameMap) => {
-            this.scene = new GameScene(initialMap)
+        this.connection.on("ReceiveInitialMap", (initialMap: GameMap, initialTime: number, tickTargetTime: number) => {
+            this.scene = new GameScene(initialMap, initialTime, tickTargetTime)
             console.info(initialMap)
             window.onresize = () => this.scene.adjustForWindowSize()
         })
 
-        this.connection.on("ReceiveEvents", (events: any[]) => {
+        this.connection.on("ReceiveEvents", (events: any[], time: number) => {
             // remember, events.forEach(this.scene.handleEvent) doesn't work for some reason
-            events.forEach(e => this.scene.handleEvent(e))
+            events.forEach(e => this.scene.handleEvent(e, time))
         })
 
         this.connection.on("ReceiveDebugText", (text: string) => {

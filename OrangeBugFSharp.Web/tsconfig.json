@@ -5,7 +5,7 @@
     "sourceMap": false,
     "target": "es2016",
     "moduleResolution": "node",
-    "outDir": "wwwroot/js",
+    "outFile": "wwwroot/OrangeBugFSharp.Web.js",
     "module": "amd"
   },
   "include": [
