@@ -8,14 +8,14 @@ import { AssetLoader } from "./AssetLoader";
 class GameMapSceneInfo {
     readonly size: Point
     readonly tiles: TileVisual[]
-    readonly entities: { key: EntityId, value: EntityVisual }[]
+    readonly entities: Map<number, EntityVisual>
 
     getTileAt(position: Point) {
         return this.tiles[position.y * this.size.x + position.x]
     }
 
     getEntity(entityId: EntityId) {
-        return this.entities.find(e => e.key.id == entityId.id).value
+        return this.entities.get(entityId.id)
     }
 
     constructor(initialMap: GameMap) {
@@ -24,12 +24,9 @@ class GameMapSceneInfo {
         this.tiles = initialMap.tiles.map((tile, i) => new TileVisual(tile,
             new Point(i % initialMap.size.x, ~~(i / initialMap.size.x))))
 
-        this.entities = initialMap.entities.map(e => {
-            return {
-                key: e.key,
-                value: new EntityVisual(e.value.entity, e.value.position)
-            }
-        })
+        this.entities = new Map(
+            initialMap.entities.map<[number, EntityVisual]>(e =>
+                [e.key.id, new EntityVisual(e.value.entity, e.value.position)]))
     }
 }
 
@@ -69,7 +66,7 @@ export class GameScene {
         this.map = map
         this.mapSceneInfo = new GameMapSceneInfo(map)
         this.mapSceneInfo.tiles.forEach(t => this.scene.add(t));
-        this.mapSceneInfo.entities.forEach(e => this.scene.add(e.value));
+        this.mapSceneInfo.entities.forEach(e => this.scene.add(e));
 
         this.adjustForWindowSize()
         this.clock.start()
@@ -79,7 +76,7 @@ export class GameScene {
     private runGameLoop() {        
         let deltaTime = this.clock.getDelta()
         this.time = this.time + (deltaTime / this.tickTargetTime)
-        this.mapSceneInfo.entities.forEach(kvp => kvp.value.update(this.time, deltaTime))
+        this.mapSceneInfo.entities.forEach(visual => visual.update(this.time, deltaTime))
         this.renderer.render(this.scene, this.camera)
         requestAnimationFrame(() => this.runGameLoop())
     }
@@ -139,10 +136,19 @@ export class GameScene {
                 entityVisual.updateVisual()
                 let tileVisual = this.mapSceneInfo.getTileAt(event.props.inkPosition)
                 tileVisual.tile = { $type: "PathTile", state: null }
+                break
+            }
+
+            case "BalloonPoppedEvent": {
+                let entityVisual = this.mapSceneInfo.getEntity(event.props.entityId)
+                this.mapSceneInfo.entities.delete(event.props.entityId)
+                this.scene.remove(entityVisual)
+                break
             }
 
             default:
                 console.warn("Unhandled '" + event.$type + "': " + event)
+                break
         }
     }
 }

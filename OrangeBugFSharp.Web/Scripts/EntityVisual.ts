@@ -63,9 +63,11 @@ export class EntityVisual extends Object3D {
             this.setRotationFromEuler(new Euler(0, 0, 0));
         }
     }
+
     get orientation() {
         return this._orientation;
     }
+    
     set orientation(o) {
         this._orientation = o;
     }
@@ -79,7 +81,6 @@ export class EntityVisual extends Object3D {
     update(time: number, deltaTime: number) {
         if (this.moveAnimation) {
             let progress = Math.min(1, Math.max(0, time - this.moveAnimation.startTime) / this.moveAnimation.duration)
-            //progress = Math.pow(progress, 1/1.7)
             progress = Math.sin(progress * (Math.PI/2))
             this.position.lerpVectors(this.moveAnimation.startPosition, this.moveAnimation.endPosition, progress)
         }
