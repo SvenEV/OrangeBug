@@ -1,0 +1,12 @@
+{
+    "files.exclude": {
+        ".git": true,
+        ".vs": true,
+        ".gitattributes": true,
+        "**/node_modules": true,
+        "**/bin": true,
+        "**/obj": true,
+        "**/*.fsproj.user": true,
+        "**/package-lock.json": true
+    }
+}

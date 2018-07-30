@@ -3,13 +3,22 @@
     // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
     // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
+    "compounds": [
+        {
+            "name": "OrangeBugFSharp.Web",
+            "configurations": [
+                "OrangeBugFSharp.Web (Server)",
+                "OrangeBugFSharp.Web (Client)"
+            ]
+        }
+    ],
     "configurations": [
         {
-            "name": ".NET Core Launch (console)",
+            "name": "OrangeBugFSharp.ConsoleClient",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "F# Build",
-            "program": "${workspaceFolder}/OrangeBugFSharp/bin/Debug/netcoreapp2.1/OrangeBugFSharp.dll",
+            "program": "${workspaceFolder}/OrangeBugFSharp.ConsoleClient/bin/Debug/netcoreapp2.1/OrangeBugFSharp.ConsoleClient.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -17,7 +26,7 @@
             "internalConsoleOptions": "openOnSessionStart"
         },
         {
-            "name": ".NET Core Launch (web)",
+            "name": "OrangeBugFSharp.Web (Server)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "F# Build",
@@ -27,11 +36,13 @@
             "stopAtEntry": false,
             "internalConsoleOptions": "openOnSessionStart",
             "launchBrowser": {
-                "enabled": true,
+                "enabled": false,
                 "args": "${auto-detect-url}/index.html",
                 "windows": {
-                    "command": "cmd.exe",
-                    "args": "/C start ${auto-detect-url}/index.html"
+                    //"command": "cmd.exe",
+                    //"args": "/C start ${auto-detect-url}/index.html"
+                    "command": "E:/Portables/Chrome64/GoogleChromePortable.exe",
+                    "args": "${auto-detect-url}/index.html"
                 },
                 "osx": {
                     "command": "open"
@@ -48,10 +59,12 @@
             }
         },
         {
-            "name": ".NET Core Attach",
-            "type": "coreclr",
-            "request": "attach",
-            "processId": "${command:pickProcess}"
+            "name": "OrangeBugFSharp.Web (Client)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:5000/index.html",
+            "webRoot": "${workspaceRoot}/OrangeBugFSharp.Web/wwwroot",
+            "runtimeExecutable": "E:/Portables/Chrome64/GoogleChromePortable.exe"
         }
     ]
 }

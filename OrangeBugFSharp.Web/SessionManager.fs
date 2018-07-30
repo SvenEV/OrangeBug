@@ -24,6 +24,6 @@ module SessionManager =
         match sessions |> Map.tryFind id with
         | Some session ->
             session.clock.stop()
-            sessions |> Map.remove id
+            sessions <- sessions |> Map.remove id
         | None ->
-            sessions
+            ()
