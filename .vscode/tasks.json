@@ -4,6 +4,17 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Build All",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOn": [
+                "F# Build",
+                "TypeScript Build"
+            ]
+        },
+        {
             "label": "F# Build",
             "group": "build",
             "command": "dotnet build",
@@ -11,7 +22,7 @@
             "presentation": {
                 "reveal": "silent"
             },
-            "problemMatcher": "$msCompile",
+            "problemMatcher": "$msCompile"
         },
         {
             "label": "TypeScript Build",
@@ -20,7 +31,23 @@
             "tsconfig": "OrangeBugFSharp.Web\\tsconfig.json",
             "problemMatcher": [
                 "$tsc"
-            ],
+            ]
+        },
+        {
+            "label": "NPM Install",
+            "type": "npm",
+            "script": "install",
+            "path": "OrangeBugFSharp.Web/",
+            "problemMatcher": []
+        },
+        {
+            "label": "Gulp: Copy JS libs to wwwroot",
+            "command": "node_modules/.bin/gulp",
+            "type": "shell",
+            "problemMatcher": [],
+            "options": {
+                "cwd": "OrangeBugFSharp.Web"
+            }
         }
     ]
 }

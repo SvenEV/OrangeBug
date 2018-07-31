@@ -8,7 +8,6 @@ var gulp = require('gulp');
 var del = require('del');
 
 var paths = {
-    scripts: ['scripts/**/*.js', 'scripts/**/*.ts', 'scripts/**/*.map'],
     libs: [
         'node_modules/@aspnet/signalr/dist/browser/signalr.js',
         'node_modules/requirejs/require.js',
@@ -21,9 +20,5 @@ gulp.task('clean', function () {
 });
 
 gulp.task('default', function () {
-    //return gulp.src(paths.scripts).pipe(gulp.dest('wwwroot/js'))
-});
-
-gulp.task('lib', function () {
     return gulp.src(paths.libs).pipe(gulp.dest('wwwroot/lib'));
 });
