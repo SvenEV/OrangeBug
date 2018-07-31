@@ -1,11 +1,11 @@
-import { PlaneGeometry, Geometry, Material, Mesh, BoxGeometry, MeshStandardMaterial, MeshBasicMaterial } from "three";
+import { PlaneGeometry, Geometry, Material, Mesh, BoxGeometry, MeshStandardMaterial, MeshBasicMaterial, MeshMaterialType } from "three";
 import { AssetLoader } from "./AssetLoader";
 import { Tile, Entity } from "./CommonTypes";
 
 export class MeshFactory {
 
     private static readonly geometries: { [key: string]: Geometry } = {}
-    private static readonly materials: { [key: string]: Material } = {}
+    private static readonly materials: { [key: string]: MeshMaterialType } = {}
     private static readonly meshGenerators: { [key: string]: (() => Mesh) } = {}
 
     static initialize() {

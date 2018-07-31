@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "Ionide.Ionide-fsharp",
+        "ms-vscode.csharp",
+        "msjsdiag.debugger-for-chrome",
+        "jtlowe.vscode-icon-theme"
+    ]
+}
