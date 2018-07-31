@@ -4,8 +4,7 @@
 # Svens custom entries
 */wwwroot/OrangeBugFSharp.Web.js
 */wwwroot/lib
-*/wwwroot/images/sprites
-*/wwwroot/sounds
+*.pdn
 
 # User-specific files
 *.suo

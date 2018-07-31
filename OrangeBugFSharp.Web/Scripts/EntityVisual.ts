@@ -1,5 +1,5 @@
 import { Object3D, Euler, Vector3, MaxEquation } from "three";
-import { Entity, Point, Direction } from "./CommonTypes";
+import { Entity, Point, Direction, toEuler } from "./CommonTypes";
 import { MeshFactory } from "./MeshFactory";
 
 class MoveAnimation {
@@ -27,37 +27,8 @@ export class EntityVisual extends Object3D {
         let entity = this._entity;
         this.remove(this.children[0]);
         this.add(MeshFactory.getMesh(entity));
-        if (entity.$type === "PlayerEntity") {
-            switch (entity.state.orientation) {
-                case Direction.North:
-                    this.setRotationFromEuler(new Euler(0, 0, 0));
-                    break;
-                case Direction.East:
-                    this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI));
-                    break;
-                case Direction.South:
-                    this.setRotationFromEuler(new Euler(0, 0, Math.PI));
-                    break;
-                case Direction.West:
-                    this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI));
-                    break;
-            }
-        }
-        else if (entity.$type === "PistonEntity") {
-            switch (entity.state.orientation) {
-                case Direction.North:
-                    this.setRotationFromEuler(new Euler(0, 0, 0));
-                    break;
-                case Direction.East:
-                    this.setRotationFromEuler(new Euler(0, 0, 1.5 * Math.PI));
-                    break;
-                case Direction.South:
-                    this.setRotationFromEuler(new Euler(0, 0, Math.PI));
-                    break;
-                case Direction.West:
-                    this.setRotationFromEuler(new Euler(0, 0, .5 * Math.PI));
-                    break;
-            }
+        if (entity.$type === "PlayerEntity" || entity.$type === "PistonEntity") {
+            this.setRotationFromEuler(toEuler(entity.state.orientation))
         }
         else {
             this.setRotationFromEuler(new Euler(0, 0, 0));

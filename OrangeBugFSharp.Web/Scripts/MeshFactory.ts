@@ -18,12 +18,12 @@ export class MeshFactory {
         this.meshGenerators.PathTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Path"))
         this.meshGenerators.WallTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Wall"))
         this.meshGenerators.ButtonTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Button"))
-        this.meshGenerators.TeleporterTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Teleport"))
+        this.meshGenerators.TeleporterTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Teleporter"))
         this.meshGenerators.CornerTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Corner"))
         this.meshGenerators.PistonTile = () => new Mesh(this.geometries.Plane, this.getMaterial("Piston"))
-        this.meshGenerators.PistonEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("BoxingGlove"))
+        this.meshGenerators.PistonEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("PistonEntity"))
         this.meshGenerators.BoxEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("Box"))
-        this.meshGenerators.PlayerEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("PlayerRight"))
+        this.meshGenerators.PlayerEntity = () => new Mesh(this.geometries.Plane, this.getMaterial("Player"))
     }
 
     private static getMaterial(spriteKey: string) {
@@ -42,20 +42,20 @@ export class MeshFactory {
             // special cases first (mesh depending on tile/entity state)
             case "GateTile": {
                 return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.state.isOpen
-                    ? "DummyWallRemoved"
-                    : "DummyWall"))
+                    ? "GateOpened"
+                    : "GateClosed"))
             }
 
             case "InkTile": {
-                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.state.color + "Ink"))
+                return new Mesh(this.geometries.Plane, this.getMaterial("Ink" + tileOrEntity.state.color))
             }
 
             case "PinTile": {
-                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.state.color + "Pool"))
+                return new Mesh(this.geometries.Plane, this.getMaterial("Pin" + tileOrEntity.state.color))
             }
 
             case "BalloonEntity": {
-                return new Mesh(this.geometries.Plane, this.getMaterial(tileOrEntity.state.color + "Ball"))
+                return new Mesh(this.geometries.Plane, this.getMaterial("Balloon" + tileOrEntity.state.color))
             }
 
             // simple cases (mesh only depending on tile/entity type)

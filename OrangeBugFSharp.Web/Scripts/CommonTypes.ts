@@ -1,4 +1,6 @@
-﻿export type Tile = { $type: string, state: { [key: string]: any } }
+﻿import { Euler } from "three";
+
+export type Tile = { $type: string, state: { [key: string]: any } }
 export type Entity = { $type: string, state: { [key: string]: any } }
 export type Effect = { $type: string, props: { [key: string]: any } }
 export type GameEvent = { $type: string, props: { [key: string]: any } }
@@ -23,4 +25,13 @@ export type GameMap = {
     size: Point,
     tiles: [Tile],
     entities: [{ key: EntityId, value: EntityEntry }]
+}
+
+export function toEuler(direction: Direction) {
+    switch (direction) {
+        case "North": return new Euler(0, 0, 0);
+        case "East": return new Euler(0, 0, 1.5 * Math.PI);
+        case "South": return new Euler(0, 0, Math.PI);
+        case "West": return new Euler(0, 0, .5 * Math.PI);
+    }
 }
