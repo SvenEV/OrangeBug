@@ -29,7 +29,7 @@
             "name": "OrangeBugFSharp.Web (Server)",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "F# Build",
+            "preLaunchTask": "Build All",
             "program": "${workspaceFolder}/OrangeBugFSharp.Web/bin/Debug/netcoreapp2.1/OrangeBugFSharp.Web.dll",
             "args": [],
             "cwd": "${workspaceFolder}/OrangeBugFSharp.Web",
@@ -63,7 +63,7 @@
             "type": "chrome",
             "request": "launch",
             "url": "http://localhost:5000/index.html",
-            "webRoot": "${workspaceRoot}/OrangeBugFSharp.Web/wwwroot",
+            "webRoot": "${workspaceRoot}/OrangeBugFSharp.Web/wwwroot"
         }
     ]
 }
