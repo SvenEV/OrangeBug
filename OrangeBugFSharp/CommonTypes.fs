@@ -1,6 +1,30 @@
 ﻿namespace OrangeBug
 
 open Newtonsoft.Json
+open Microsoft.FSharp.Reflection
+
+[<AutoOpen>]
+module UnionHelper =
+    /// <summary>
+    /// Unwraps a union value into a specific union case.
+    /// If the union value does not match that case, returns None.
+    /// Caution: Union cases with identical field types are considered equivalent,
+    /// e.g. having "type U = A of int | B of int", "unwrap A (B 5) = Some 5".
+    /// </summary>
+    let unwrapAs (ctor: 'a -> 'u) (v: 'u) : 'a option =
+        let case, fields = FSharpValue.GetUnionFields(v, typedefof<'u>)
+        let caseTypes = case.GetFields() |> Array.map (fun f -> f.PropertyType)
+        let desiredType, _ = FSharpType.GetFunctionElements(ctor.GetType())
+
+        if FSharpType.IsTuple desiredType then
+            let neededTypes = FSharpType.GetTupleElements desiredType
+            if caseTypes = neededTypes
+            then Some (FSharpValue.MakeTuple(fields, desiredType) :?> 'a)
+            else None
+        else
+            if caseTypes = [| desiredType |]
+            then Some (fields.[0] :?> 'a)
+            else None
 
 [<Struct>]
 type Point = { x: int; y : int }

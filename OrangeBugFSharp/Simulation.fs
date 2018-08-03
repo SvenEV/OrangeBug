@@ -50,13 +50,12 @@ module Simulation =
         // tile we return a LockedTile when querying the map for a locked position.
         // TODO: Do we need a notion of "locked entities" as well?
         {
-            getAt = fun p ->
+            getTile = fun p ->
                 if isTileLocked p simulation
-                then { position = p; tile = LockedTile; entityId = None }
-                else accessor.getAt p
+                then LockedTile, None
+                else accessor.getTile p
 
-            getEntity = accessor.getEntity
-            hasEntity = accessor.hasEntity
+            tryGetEntity = accessor.tryGetEntity
             getPlayerId = accessor.getPlayerId
             
             getDependenciesOf = fun p ->
@@ -77,9 +76,11 @@ module Simulation =
 
         let processScheduledIntent sim intent =
             let context = Gameplay.createContextWithAccessor sim.map sim.time (mapAccessor sim)
-            let result = context.HandleIntent intent.intent
+            let result = context |> Intent.handle intent.intent
             match result with
-            | Rejected _ -> sim
+            | Rejected trace ->
+                printfn "Failed to process intent '%O': %s" intent trace.log 
+                sim
             | Accepted events -> { sim with scheduledEvents = sim.scheduledEvents @ events }
 
         let simAfterIntents = intentsToProcess |> Seq.fold processScheduledIntent simulation

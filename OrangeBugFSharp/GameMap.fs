@@ -17,7 +17,7 @@ module GameMap =
         | None, None -> entities
 
     let private addDependenciesForTile tile position dynamicDeps graph =
-        let behavior = Behavior.getTileBehavior tile
+        let behavior = Behavior.ofTile tile
         let dependencies = dynamicDeps @ behavior.getStaticDependencies tile
         dependencies |> List.fold
             (fun (g: DependencyGraph) dependency ->
@@ -30,21 +30,13 @@ module GameMap =
 
     // Map read access
 
-    let getAt position map =
+    let getTile position map =
         let tileEntry = map.tiles.Find position
-        {
-            position = position
-            tile = tileEntry.tile
-            entityId = tileEntry.entityId
-        }
+        tileEntry.tile, tileEntry.entityId
 
-    let hasEntity id map =
-        map.entities.ContainsKey id
-
-    let getEntity id map =
-        match map.entities.TryFind id with
-        | Some entry -> entry.position, entry.entity
-        | None -> failwithf "getEntity failed: There is no entity with ID '%O'" id
+    let tryGetEntity id map =
+        map.entities.TryFind id
+        |> Option.map (fun e -> e.position, e.entity)
         
     let getPlayerId name map =
         map.players.[name]
@@ -60,9 +52,8 @@ module GameMap =
         | None -> Set.empty
 
     let accessor map = {
-        getAt = fun p -> getAt p map
-        getEntity = fun id -> getEntity id map
-        hasEntity = fun id -> hasEntity id map
+        getTile = fun p -> getTile p map
+        tryGetEntity = fun id -> tryGetEntity id map
         getPlayerId = fun name -> getPlayerId name map
         getPositionsDependentOn = fun pos -> getPositionsDependentOn pos map
         getDependenciesOf = fun pos -> getDependenciesOf pos map

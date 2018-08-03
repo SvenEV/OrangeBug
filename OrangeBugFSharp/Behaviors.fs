@@ -1,8 +1,6 @@
 ﻿namespace OrangeBug.Game
 open OrangeBug
 
-#nowarn "25" // incomplete pattern matching
-
 type TileBehavior = {
     // Should return an 'EntityAttachedEvent' to indicate success
     tryAttachEntity: AttachEntityToTileIntent -> IntentContext -> IntentResult
@@ -10,7 +8,9 @@ type TileBehavior = {
     // Should return an 'EntityDetachedEvent' to indicate success
     tryDetachEntity: DetachEntityFromTileIntent -> IntentContext -> IntentResult
 
+    // Accepting or rejecting doesn't make a difference here
     update: UpdateTileIntent -> IntentContext -> IntentResult
+
     getStaticDependencies: Tile -> MapDependency list
 }
 
@@ -26,137 +26,133 @@ module Behavior =
     // Infrastructure
     
     let private justAccept _ _ = Accepted []
-    let private justReject _ _ = Rejected ErrorTrace.Empty
+    let private justReject msg _ _ = Rejected (ErrorTrace.Log msg)
     let private zeroDependencies _ = []
 
 
     // Tile behaviors
 
     let WallTileBehavior = {
-        tryAttachEntity = justReject
-        tryDetachEntity = justReject
+        tryAttachEntity = justReject "Entities can't attach to this tile"
+        tryDetachEntity = justReject "Entities can't detaach from this tile"
         update = justAccept
         getStaticDependencies = zeroDependencies
     }
 
-    let LockedTileBehavior = {
-        WallTileBehavior with
-            update = justReject // practically, accepting or rejecting doesn't make a difference in 'update'
-            getStaticDependencies = zeroDependencies
-    }
+    let LockedTileBehavior = WallTileBehavior
 
     let PathTileBehavior = {
         WallTileBehavior with
 
-            tryAttachEntity = fun intent context ->
-                let clearTargetTile (ctx: IntentContext) =
-                    let target = context.map.getAt intent.move.newPosition
-                    match target.entityId with
-                    | None -> Accepted []
+            tryAttachEntity = fun intent context -> gameplay context {
+                let clearTargetTile ctx = gameplay ctx {
+                    let! _, entityId = MapAccess.getTile intent.move.newPosition
+                    match entityId with
+                    | None -> return Accepted []
                     | Some entityToClear ->
                         let moveDirection =
                             match intent.move.mode with
                             | Teleport -> None
                             | Push _ -> (intent.move.newPosition - intent.oldPosition).asDirection
-                        ctx.HandleIntent (ClearEntityFromTileIntent { 
+                        return! ClearEntityFromTileIntent { 
                             entityId = entityToClear
                             suggestedPushDirection = moveDirection
                             move = intent.move
-                        })
+                        }
+                }
                         
-                let emitEvent = emit intent.move.duration 0 (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
-                context |> (clearTargetTile =&&=> emitEvent)
+                let emitEvent =
+                    EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition }
+                    |> emit intent.move.duration 0 
+                
+                return! clearTargetTile =&&=> emitEvent
+            }
                 
             tryDetachEntity = fun intent ->
                 emitNow 0 (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })        
     }
 
     let ButtonTileBehavior = {
-        WallTileBehavior with
-
-            tryAttachEntity = fun intent context ->
-                let emitEvent (ctx: IntentContext) =
-                    let (ButtonTile button) = (ctx.map.getAt intent.move.newPosition).tile
-                    ctx |> emit intent.move.duration 0 (ButtonPressedEvent { position = intent.move.newPosition; button = { button with isPressed = true } })
-                context |> (PathTileBehavior.tryAttachEntity intent =&&=> emitEvent)
-
-            tryDetachEntity = fun intent context ->
-                let emitEvent (ctx: IntentContext) =
-                    let (ButtonTile button) = (ctx.map.getAt intent.position).tile
-                    ctx |> emitNow 0 (ButtonReleasedEvent { position = intent.position; button = { button with isPressed = false } })
-                context |> (PathTileBehavior.tryDetachEntity intent =&&=> emitEvent)
+        PathTileBehavior with
+            update = fun intent context -> gameplay context {
+                let! button = MapAccess.requireTile ButtonTile intent.position
+                let! entity = MapAccess.tryGetEntityAt intent.position
+                match button.isPressed, entity with
+                | false, Some _ -> return! emitNow 0 (ButtonPressedEvent { position = intent.position; button = { button with isPressed = true } })
+                | true, None -> return! emitNow 0 (ButtonReleasedEvent { position = intent.position; button = { button with isPressed = false } })
+                | _ -> return Accepted []
+            }
     }
 
     let InkTileBehavior = {
-        PathTileBehavior with        
-            tryAttachEntity = fun intent context ->
-                let emitEvent ctx =
-                    let (InkTile inkTile) = (ctx.map.getAt intent.move.newPosition).tile
-                    let _, entity = ctx.map.getEntity intent.move.entityId
-                    match entity with
-                    | BalloonEntity balloon ->
-                        ctx |> emit intent.move.duration 0 (BalloonColoredEvent { 
-                            entityId = intent.move.entityId
-                            inkPosition = intent.move.newPosition
-                            color = inkTile.color
-                            balloon = { balloon with color = inkTile.color }
-                        })
-                    | _ -> Accepted []
-                context |> (PathTileBehavior.tryAttachEntity intent =&&=> emitEvent)
+        PathTileBehavior with
+            update = fun intent context -> gameplay context {
+                let! inkTile = MapAccess.requireTile InkTile intent.position
+                let! id, balloon = MapAccess.requireEntityAt BalloonEntity intent.position
+                return! emitNow 0 (BalloonColoredEvent { 
+                    entityId = id
+                    inkPosition = intent.position
+                    color = inkTile.color
+                    balloon = { balloon with color = inkTile.color }
+                })
+            }
     }
 
     let PinTileBehavior = {
         // Why not to emit 'BalloonPoppedEvent' in 'tryAttachEntity':
         // * event would be emitted prior to 'EntityMovedEvent', resulting 'TileUpdateEffect' would fail
         // * if we load a map where initially there's a balloon on a pin, it wouldn't pop
-
         PathTileBehavior with
 
-            update = fun intent context ->
-                let tileEntry = context.map.getAt intent.position
-                let (PinTile pin) = tileEntry.tile
-                match tileEntry.entityId with
-                | None -> Accepted []
-                | Some entityId ->
-                    let _, entity = context.map.getEntity entityId
-                    match entity with
-                    | BalloonEntity balloon when balloon.color = pin.color ->
-                        context |> emitNow 0 (BalloonPoppedEvent { entityId = entityId; pinPosition = intent.position })
-                    | _ -> Accepted []
+            update = fun intent context -> gameplay context {
+                let! pinTile = MapAccess.requireTile PinTile intent.position
+                let! id, balloon = MapAccess.requireEntityAt BalloonEntity intent.position
+                if balloon.color = pinTile.color
+                    then return! emitNow 0 (BalloonPoppedEvent { entityId = id; pinPosition = intent.position })
+                    else return Accepted []
+            }
 
-            tryAttachEntity = fun intent context ->
-                let validateEntity ctx =
-                    let (PinTile pinTile) = (ctx.map.getAt intent.move.newPosition).tile
-                    let _, entity = ctx.map.getEntity intent.move.entityId
+            tryAttachEntity = fun intent context -> gameplay context {
+                let validateEntity ctx = gameplay ctx {
+                    let! pinTile = MapAccess.requireTile PinTile intent.move.newPosition
+                    let! _, entity = MapAccess.requireEntityExists intent.move.entityId
                     match entity with
-                    | BalloonEntity balloon when balloon.color = pinTile.color -> Accepted []
-                    | PlayerEntity _ -> Accepted []
-                    | _ -> Rejected ErrorTrace.Empty
-                context |> (validateEntity =&&=> PathTileBehavior.tryAttachEntity intent)
+                    | BalloonEntity balloon when balloon.color = pinTile.color -> return Accepted []
+                    | PlayerEntity _ -> return Accepted []
+                    | _ -> return Rejected (ErrorTrace.Log (sprintf "Not allowed on PinTile: %O" entity))
+                }
+                return! validateEntity =&&=> PathTileBehavior.tryAttachEntity intent
+            }
     }
 
     let GateTileBehavior = {
         PathTileBehavior with
 
-            tryAttachEntity = fun intent context ->
-                let (GateTile gate) = (context.map.getAt intent.move.newPosition).tile
+            tryAttachEntity = fun intent context -> gameplay context {
+                let! gate = MapAccess.requireTile GateTile intent.move.newPosition
                 match gate.isOpen with
-                | true -> PathTileBehavior.tryAttachEntity intent context
-                | false -> WallTileBehavior.tryAttachEntity intent context
+                | true -> return! PathTileBehavior.tryAttachEntity intent
+                | false -> return! WallTileBehavior.tryAttachEntity intent
+            }
 
             // We must NOT close the gate in 'tryDetachEntity' or 'onEntityDetached'.
             // Consider e.g. [player on path][box on gate][path] (button for gate is off)
             // When the player moves right, first the box moves right.
             // If the gate would close on box detach, the player could
             // not move onto it to keep it open.
-            update = fun intent context ->
-                let tileInfo = (context.map.getAt intent.position)
-                let (GateTile gate) = tileInfo.tile
-                let (ButtonTile button) = (context.map.getAt gate.triggerPosition).tile
-                match gate.isOpen, button.isPressed, tileInfo.entityId with
-                | false, true, None -> context |> emitNow 4 (GateOpenedEvent { gate = { gate with isOpen = true }; position = tileInfo.position })
-                | true, false, None -> context |> emitNow 4 (GateClosedEvent { gate = { gate with isOpen = false }; position = tileInfo.position })
-                | _ -> Accepted []
+            update = fun intent context -> gameplay context {
+                let! gate = MapAccess.requireTileWithoutEntity GateTile intent.position
+                let! trigger, _ = MapAccess.getTile gate.triggerPosition
+                let isTriggerOn =
+                    match trigger with
+                    | ButtonTile b -> b.isPressed
+                    | _ -> false
+                
+                match gate.isOpen, isTriggerOn with
+                | false, true -> return! emitNow 4 (GateOpenedEvent { gate = { gate with isOpen = true }; position = intent.position })
+                | true, false -> return! emitNow 4 (GateClosedEvent { gate = { gate with isOpen = false }; position = intent.position })
+                | _ -> return Accepted []
+            }
        
             getStaticDependencies = fun tile ->
                 let (GateTile gate) = tile
@@ -165,158 +161,167 @@ module Behavior =
 
     let TeleporterTileBehavior = {
         PathTileBehavior with
-            update = fun intent context ->
-                let tileEntry = context.map.getAt intent.position
-                let (TeleporterTile teleporter) = tileEntry.tile
-                match teleporter.isActive with
-                | true ->
+            update = fun intent context -> gameplay context {
+                let! teleporter = MapAccess.requireTile TeleporterTile intent.position
+                if teleporter.isActive then
                     // teleport entity (if target is again a teleporter, temporarily deactivate)
-                    match tileEntry.entityId with
-                    | None -> Accepted []
-                    | Some entityId ->
-                        let doTeleport (ctx: IntentContext) =
-                            ctx.HandleIntent (MoveEntityIntent { 
-                                entityId = entityId
-                                newPosition = teleporter.targetPosition
-                                mode = Teleport
-                                initiator = SomeTeleporter
-                                duration = GameTimeSpan 4
-                            })
-                        
-                        let deactivateTargetTeleporter (ctx: IntentContext) =
-                            let targetTile = ctx.map.getAt teleporter.targetPosition
-                            match targetTile.tile with
-                            | TeleporterTile targetTeleporter ->
-                                ctx |> emitNow 0 (TeleporterDeactivatedEvent {
-                                    position = teleporter.targetPosition
-                                    teleporter = { targetTeleporter with isActive = false }
-                                })
-                            | _ -> Accepted []
-                        
-                        context |> (doTeleport =&&=> deactivateTargetTeleporter)
-                | false ->
+                    let! entityId, _ = MapAccess.requireEntityExistsAt intent.position
+
+                    let doTeleport ctx = gameplay ctx {
+                        return! MoveEntityIntent { 
+                            entityId = entityId
+                            newPosition = teleporter.targetPosition
+                            mode = Teleport
+                            initiator = SomeTeleporter
+                            duration = GameTimeSpan 4
+                        }
+                    }
+                    
+                    let deactivateTargetTeleporter ctx = gameplay ctx {
+                        let! targetTeleporter = MapAccess.requireTile TeleporterTile teleporter.targetPosition
+                        return! emitNow 0 (TeleporterDeactivatedEvent {
+                            position = teleporter.targetPosition
+                            teleporter = { targetTeleporter with isActive = false }
+                        })
+                    }
+                    
+                    return! doTeleport =&&=> attempt deactivateTargetTeleporter
+                else
                     // do not teleport but re-activate teleporter
-                    context |> emitNow 0 (TeleporterActivatedEvent { 
+                    return! emitNow 0 (TeleporterActivatedEvent { 
                         position = intent.position
                         teleporter = { teleporter with isActive = true }
                     })
+            }
     }
     
     let CornerTileBehavior = {
         WallTileBehavior with
 
-            tryAttachEntity = fun intent context ->
-                let target = context.map.getAt intent.move.newPosition
-                let (CornerTile corner) = target.tile
+            tryAttachEntity = fun intent context -> gameplay context {
+                let! corner = MapAccess.requireTile CornerTile intent.move.newPosition
                 let inDirection = (intent.move.newPosition - intent.oldPosition).asDirection
                 let outDirection = CornerTile.mapInToOutDirection corner.orientation inDirection
 
                 // ensure entity can't move in from a wall side of the corner (but allow teleports)
                 let validateEntry _ =
                     match intent.move.mode, outDirection with
-                    | Push _, None _ -> Rejected ErrorTrace.Empty
+                    | Push _, None -> Rejected (ErrorTrace.Log "Tried to enter CornerTile from a wrong side")
                     | _ -> Accepted []
                 
                 // empty the target tile, suggesting a move around the corner
-                let clearTargetTile (ctx: IntentContext) =
-                    match target.entityId with
-                        | None -> Accepted []
-                        | Some entityToClear ->
-                            ctx.HandleIntent (ClearEntityFromTileIntent { 
-                                entityId = entityToClear
-                                suggestedPushDirection = outDirection
-                                move = intent.move
-                            })
+                let clearTargetTile ctx = gameplay ctx {
+                    let! _, entity = MapAccess.getTile intent.move.newPosition
+                    match entity with
+                    | None -> return Accepted []
+                    | Some entityToClear ->
+                        return! ClearEntityFromTileIntent { 
+                            entityId = entityToClear
+                            suggestedPushDirection = outDirection
+                            move = intent.move
+                        }
+                }
                  
-                let emitEvent = emit intent.move.duration 0 (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
-                context |> (validateEntry =&&=> clearTargetTile =&&=> emitEvent)
-
-            tryDetachEntity = fun intent context ->
-                let validateExit (ctx: IntentContext) =
-                    let target = context.map.getAt intent.position
-                    let (CornerTile corner) = target.tile
-                    let outDirection = (intent.move.newPosition - intent.position).asDirection
-                    let validOutDir = CornerTile.isValidOutDirection corner.orientation outDirection
-                    match intent.move.mode, validOutDir with
-                    | Push _, false -> Rejected ErrorTrace.Empty
-                    | _ -> Accepted []
+                let emitEvent =
+                    EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition }
+                    |> emit intent.move.duration 0
                 
-                let emitEvent = emitNow 0 (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
-                context |> (validateExit =&&=> emitEvent)
+                return! validateEntry =&&=> clearTargetTile =&&=> emitEvent
+            }
+
+            tryDetachEntity = fun intent context -> gameplay context {
+                let validateExit ctx = gameplay ctx {
+                    let outDirection = (intent.move.newPosition - intent.position).asDirection
+                    let! corner = MapAccess.requireTile CornerTile intent.position
+                    let isValidOutDir = CornerTile.isValidOutDirection corner.orientation outDirection
+                    match intent.move.mode, isValidOutDir with
+                    | Push _, false -> return Rejected (ErrorTrace.Log "Tried to leave CornerTile via wrong side")
+                    | _ -> return Accepted []
+                }
+                
+                let emitEvent =
+                    EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position }
+                    |> emitNow 0
+                
+                return! validateExit =&&=> emitEvent
+            }
     }
 
     let PistonTileBehavior = {
         WallTileBehavior with
 
-            tryAttachEntity = fun intent context ->
-                let _, entity = context.map.getEntity intent.move.entityId
-                match entity with
-                | PistonEntity _ -> context |> emit intent.move.duration 0 (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
-                | _ -> Rejected ErrorTrace.Empty
+            tryAttachEntity = fun intent context -> gameplay context {
+                let! _ = MapAccess.requireEntity PistonEntity intent.move.entityId
+                return! emit intent.move.duration 0 (EntityAttachedEvent { entityId = intent.move.entityId; position = intent.move.newPosition })
+            }
 
-            tryDetachEntity = fun intent context ->
-                let _, entity = context.map.getEntity intent.move.entityId
-                match entity with
-                | PistonEntity _ -> context |> emitNow 0 (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
-                | _ -> Rejected ErrorTrace.Empty
+            tryDetachEntity = fun intent context -> gameplay context {
+                let! _ = MapAccess.requireEntity PistonEntity intent.move.entityId
+                return! emitNow 0 (EntityDetachedEvent { entityId = intent.move.entityId; position = intent.position })
+            }
 
-            update = fun intent context ->
-                let tileInfo = context.map.getAt intent.position
-                let (PistonTile piston) = tileInfo.tile
+            update = fun intent context -> gameplay context {
                 
-                let extendPiston (ctx: IntentContext) =
-                    let tryExtend (ctx: IntentContext) =
-                        let pistonEntity =
-                            match tileInfo.entityId with
-                            | Some id -> id
-                            | None -> failwithf "Missing PistonEntity on PistonTile at '%O' while trying to extend" intent.position
-                        ctx.HandleIntent (MoveEntityIntent {
+                let extendPiston ctx = gameplay ctx {
+                    let! piston = MapAccess.requireTile PistonTile intent.position
+                    
+                    let tryExtend ctx = gameplay ctx {
+                        let! pistonEntity, _ = MapAccess.requireEntityAt PistonEntity intent.position
+                        return! MoveEntityIntent {
                             entityId = pistonEntity
                             newPosition = intent.position + piston.orientation.asPoint
                             mode = Push piston.force
                             initiator = SomePiston
                             duration = GameTimeSpan 1
-                        })
+                        }
+                    }
 
-                    let emitEvent = emitNow 4 (PistonExtendedEvent { position = intent.position; piston = { piston with isExtended = true } })
+                    let emitEvent =
+                        PistonExtendedEvent { position = intent.position; piston = { piston with isExtended = true } }
+                        |> emitNow 4
 
                     match ctx |> (tryExtend =&&=> emitEvent) with
-                    | Accepted events -> Accepted events
+                    | Accepted events -> return Accepted events
                     | Rejected trace ->
                         // register dependencies on all tiles along the "push path" so that if something
                         // changes there, 'update' is called again and the piston can try extending again
                         let deps = trace.attemptedMoves |> List.map (snd >> AbsoluteMapDependency)
-                        ctx |> emitNow 0 (DependenciesUpdatedEvent { position = intent.position; newDependencies = deps })
+                        return! emitNow 0 (DependenciesUpdatedEvent { position = intent.position; newDependencies = deps })
+                }
+                
+                let retractPiston ctx = gameplay ctx {
+                    let! piston = MapAccess.requireTile PistonTile intent.position
 
-                let retractPiston (ctx: IntentContext) =
-                    let tryRetract (ctx: IntentContext) =
+                    let tryRetract ctx = gameplay ctx {
+                        do! MapAccess.requireNoEntityAt intent.position
                         let neighborPosition = intent.position + piston.orientation.asPoint
-                        let neighborTileInfo = context.map.getAt neighborPosition
-                        let pistonEntity =
-                            match tileInfo.entityId, neighborTileInfo.entityId with
-                            | Some id, _ -> id
-                            | None, Some id -> id
-                            | None, None -> failwithf "Missing PistonEntity on PistonTile at '%O' or '%O' while trying to retract" intent.position neighborPosition
-                        ctx.HandleIntent (MoveEntityIntent {
+                        let! pistonEntity, _ = MapAccess.requireEntityAt PistonEntity neighborPosition
+                        return! MoveEntityIntent {
                             entityId = pistonEntity
                             newPosition = intent.position
                             mode = Push 1 // no need for stronger force here (by the way, TODO: Do we need a Pull-mode?)
                             initiator = SomePiston
                             duration = GameTimeSpan 1
-                        })
+                        }
+                    }
 
                     let emitEvent = emitNow 4 (PistonRetractedEvent { position = intent.position; piston = { piston with isExtended = false } })
                     let removeDependencies = emitNow 0 (DependenciesUpdatedEvent { position = intent.position; newDependencies = [] })
-                    ctx |> (tryRetract =&&=> emitEvent =&&=> removeDependencies)
+                    return! tryRetract =&&=> emitEvent =&&=> removeDependencies
+                }
                 
-                let isTriggerOn = (context.map.getAt piston.triggerPosition).tile |> function
+                let! piston = MapAccess.requireTile PistonTile intent.position                        
+                let! trigger, _ = MapAccess.getTile piston.triggerPosition
+                let isTriggerOn =
+                    match trigger with
                     | ButtonTile b -> b.isPressed
                     | _ -> false
                 
                 match piston.isExtended, isTriggerOn with
-                | false, true -> context |> extendPiston
-                | true, false -> context |> retractPiston
-                | _ -> Accepted []
+                | false, true -> return! extendPiston
+                | true, false -> return! retractPiston
+                | _ -> return Accepted []
+            }
 
             getStaticDependencies = fun tile ->
                 let (PistonTile piston) = tile
@@ -328,24 +333,29 @@ module Behavior =
     
     let PlayerEntityBehavior = {
         validateDetach = justAccept
-        tryClearTile = justReject
+        tryClearTile = justReject "PlayerEntity can only move on its own - it can't be pushed"
     }
 
     let BoxEntityBehavior = {
         validateDetach = justAccept
-        tryClearTile = fun intent context ->
+        tryClearTile = fun intent context -> gameplay context {
             match intent.move.mode, intent.suggestedPushDirection with
-            | _, None -> Rejected ErrorTrace.Empty // box can't just disappear without moving somewhere
-            | Teleport, _ -> Rejected ErrorTrace.Empty // box can't be pushed away through teleportation
+            | _, None -> return Rejected (ErrorTrace.Log "No push direction suggested - box can't just disappear")
+            | Teleport, _ -> return Rejected (ErrorTrace.Log "Box can't be pushed away through teleportation")
             | Push force, Some dir ->
-                let position, _ = context.map.getEntity intent.entityId
-                context.HandleIntent (MoveEntityIntent {
-                    entityId = intent.entityId
-                    newPosition = position + dir.asPoint
-                    mode = Push (force - 1)
-                    initiator = intent.move.initiator
-                    duration = intent.move.duration
-                })
+                // For better code reuse, we do not specifically require a BoxEntity here
+                let! entity = MapAccess.tryGetEntity intent.entityId
+                match entity with
+                | None -> return Rejected (ErrorTrace.Log "Missing entity in BoxEntityBehavior.tryClearTile")
+                | Some (position, _) ->
+                    return! MoveEntityIntent {
+                        entityId = intent.entityId
+                        newPosition = position + dir.asPoint
+                        mode = Push (force - 1)
+                        initiator = intent.move.initiator
+                        duration = intent.move.duration
+                    }
+        }
     }
 
     let BalloonEntityBehavior = {
@@ -354,16 +364,16 @@ module Behavior =
     }
 
     let PistonEntityBehavior = {
-        validateDetach = fun intent context ->
+        validateDetach = fun intent _ ->
             // piston entity can only be moved by piston tile (e.g. it can't be teleported)
             match intent.move.initiator with
             | SomePiston -> Accepted []
-            | _ -> Rejected ErrorTrace.Empty
+            | _ -> Rejected (ErrorTrace.Log "Something tried to move PistonEntity")
 
-        tryClearTile = justReject
+        tryClearTile = justReject "PistonEntity is operated by PistonTile - it can't be pushed"
     }
 
-    let getTileBehavior tile =
+    let ofTile tile =
         match tile with
         | PathTile _ -> PathTileBehavior
         | WallTile _ -> WallTileBehavior
@@ -376,7 +386,7 @@ module Behavior =
         | CornerTile _ -> CornerTileBehavior
         | PistonTile _ -> PistonTileBehavior
 
-    let getEntityBehavior entity =
+    let ofEntity entity =
         match entity with
         | PlayerEntity _ -> PlayerEntityBehavior
         | BoxEntity _ -> BoxEntityBehavior

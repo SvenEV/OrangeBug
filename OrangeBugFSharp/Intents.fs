@@ -1,6 +1,7 @@
 ﻿namespace OrangeBug.Game
 
 open OrangeBug
+open System
 
 // Intents
 
@@ -58,9 +59,18 @@ type Intent =
 type ErrorTrace =
     {
         attemptedMoves: (Point * Point) list
+        log: string
     }
-    static member Empty = { attemptedMoves = [] } 
-    static member Combine t1 t2 = { attemptedMoves = t1.attemptedMoves @ t2.attemptedMoves }
+    static member Empty = { attemptedMoves = []; log = "" }
+    static member Log msg = { attemptedMoves = []; log = msg }
+    static member Combine t1 t2 = {
+        attemptedMoves = t1.attemptedMoves @ t2.attemptedMoves
+        log =
+            match t1.log, t2.log with
+            | "", s -> s
+            | s, "" -> s
+            | s1, s2 -> String.concat Environment.NewLine [ s1; s2 ]
+    }
 
 type IntentResult =
     | Accepted of ScheduledEvent list
@@ -79,11 +89,29 @@ type IntentContext =
         gameMapApplyEffect: GameMapState -> Effect -> GameMapState
         gameMapCreateAccessor: GameMapState -> MapAccessor
     }
-    member this.HandleIntent = fun intent -> this.doHandleIntent intent this
+
+type GameplayBuilder(context) =
+    member __.Bind(x, f) =
+        match x context.map with
+        | AssertTrue x -> f x
+        | AssertFalse msg -> Rejected (ErrorTrace.Log msg)
+    member __.Return(result: IntentResult) = result
+    member __.ReturnFrom(f: IntentContext -> IntentResult) = f context
+    member __.ReturnFrom(intent: Intent) = context.doHandleIntent intent context
 
 module Intent =
 
-    let emit delay duration ev (context: IntentContext) =
+    let gameplay = GameplayBuilder
+    
+    let attempt f context =
+        match f context with
+        | Accepted _ as ok -> ok
+        | Rejected trace -> Accepted []
+    
+    let inline handle intent context =
+        context.doHandleIntent intent context
+
+    let inline emit delay duration ev context =
         Accepted [
             {
                 event = ev
@@ -94,7 +122,12 @@ module Intent =
        
     let emitNow = emit (GameTimeSpan 0)
 
-    let trace t _ = Rejected t
+    let inline trace t _ = Rejected t
+
+    let requireRecentEvent expected ctx =
+        if ctx.recentEvents |> List.exists (fun ev -> ev.event = expected)
+        then Accepted []
+        else Rejected (ErrorTrace.Log (sprintf "Expected but didn't find recent event: %O" expected))
 
     let applyEvents context events =
         let newMap =

@@ -20,32 +20,30 @@ module Rendering =
         | _ -> [| " ??? "; "?????"; " ??? " |]
 
     let entityAsString (map: GameMapState) entityId =
-        match entityId with
-        | Some id ->
-            let _, entity = map |> GameMap.getEntity id
-            match entity with
-            | PlayerEntity player ->
-                match player.orientation with
-                | North -> "▲"
-                | East -> "►"
-                | South -> "▼"
-                | West -> "◄"
-            | BoxEntity -> "▥"
-            | BalloonEntity _ -> "O"
-            | PistonEntity _ -> "&"
+        let entity = entityId |> Option.bind (fun id -> GameMap.tryGetEntity id map) |> Option.map snd
+        match entity with
+        | Some (PlayerEntity player) ->
+            match player.orientation with
+            | North -> "▲"
+            | East -> "►"
+            | South -> "▼"
+            | West -> "◄"
+        | Some (BoxEntity _) -> "▥"
+        | Some (BalloonEntity _) -> "O"
+        | Some (PistonEntity _) -> "&"
         | None -> " "
 
     let mapAsString (map: GameMapState) =
         let rowAsString row =
             String.concat "\n" [
-                Seq.map (fun (t: TileInfo) -> (tileAsString t.tile).[0]) row |> String.concat " "
-                Seq.map (fun (t: TileInfo) -> [(tileAsString t.tile).[1].[0]; (tileAsString t.tile).[1].[1]; (entityAsString map t.entityId).[0]; (tileAsString t.tile).[1].[3]; (tileAsString t.tile).[1].[4] ] |> Array.ofList |> String) row |> String.concat " "
-                Seq.map (fun (t: TileInfo) -> (tileAsString t.tile).[2]) row |> String.concat " "
+                Seq.map (fun (tile, _) -> (tileAsString tile).[0]) row |> String.concat " "
+                Seq.map (fun (tile, entityId) -> [(tileAsString tile).[1].[0]; (tileAsString tile).[1].[1]; (entityAsString map entityId).[0]; (tileAsString tile).[1].[3]; (tileAsString tile).[1].[4] ] |> Array.ofList |> String) row |> String.concat " "
+                Seq.map (fun (tile, _) -> (tileAsString tile).[2]) row |> String.concat " "
             ]
 
         let rows =
             let points = [0 .. map.size.y - 1] |> Seq.collect (fun y -> [0 .. map.size.x - 1] |> Seq.map (fun x -> Point.create x y))
-            Seq.map (fun p -> GameMap.getAt p map) points
+            Seq.map (fun p -> GameMap.getTile p map) points
             |> Seq.chunkBySize map.size.x
             |> Seq.rev
             |> Seq.map rowAsString

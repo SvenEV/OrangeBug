@@ -99,7 +99,7 @@ type PistonEntity = {
 
 type Entity =
     | PlayerEntity of state: PlayerEntity
-    | BoxEntity
+    | BoxEntity of state: unit
     | BalloonEntity of state: BalloonEntity
     | PistonEntity of state: PistonEntity
 

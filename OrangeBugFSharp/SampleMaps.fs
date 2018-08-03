@@ -9,7 +9,7 @@ module SampleMaps =
         |> GameMap.updateTile (Point.create 4 4) (ButtonTile { isPressed = false })
         |> GameMap.updateTile (Point.create 5 4) (GateTile { isOpen = true; triggerPosition = Point.create 4 4 })
         |> GameMap.updateTile (Point.create 5 5) (GateTile { isOpen = false; triggerPosition = Point.create 4 4 })
-        |> GameMap.spawnEntity (Point.create 3 2) EntityId.create BoxEntity
+        |> GameMap.spawnEntity (Point.create 3 2) EntityId.create (BoxEntity ())
         |> GameMap.spawnEntity (Point.create 4 2) EntityId.create (BalloonEntity { color = Blue })
         |> GameMap.updateTile (Point.create 6 2) (InkTile { color = Red })
         |> GameMap.updateTile (Point.create 7 2) (InkTile { color = Green })
@@ -25,4 +25,4 @@ module SampleMaps =
         |> GameMap.spawnEntity (Point.create 12 3) EntityId.create (PistonEntity { orientation = North })
         |> GameMap.updateTile (Point.create 12 4) (CornerTile { orientation = South })
         //|> GameMap.updateTile (Point.create 12 4) (TeleporterTile { targetPosition = Point.create 2 6; isActive = true })
-        |> GameMap.spawnEntity (Point.create 12 4) EntityId.create BoxEntity
+        |> GameMap.spawnEntity (Point.create 12 4) EntityId.create (BoxEntity ())
