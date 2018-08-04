@@ -1,7 +1,11 @@
 ﻿require.config({
     baseUrl: "/",
+    generateSourceMaps: true,
     paths: {
         "@aspnet": "/lib"
+    },
+    bundles: {
+        "OrangeBugFSharp.Web.js": [ "GameClient" ]
     },
     map: {
         "*": {

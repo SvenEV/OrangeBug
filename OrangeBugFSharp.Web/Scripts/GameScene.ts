@@ -42,6 +42,7 @@ export class GameScene {
     readonly renderer = new WebGLRenderer()
     readonly clock = new Clock(false)
     readonly debugText = document.getElementById("debugText")
+    readonly debugText2 = document.getElementById("debugText2")
 
     constructor(map: GameMap, initialTime: number, tickTargetTime: number) {
         let audioListener = new AudioListener()
@@ -78,6 +79,8 @@ export class GameScene {
         this.time = this.time + (deltaTime / this.tickTargetTime)
         this.mapSceneInfo.entities.forEach(visual => visual.update(this.time, deltaTime))
         this.renderer.render(this.scene, this.camera)
+        
+        this.debugText2.innerText = Math.floor(1 / deltaTime) + " FPS"
         requestAnimationFrame(() => this.runGameLoop())
     }
 

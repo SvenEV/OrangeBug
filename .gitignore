@@ -5,6 +5,7 @@
 */wwwroot/OrangeBugFSharp.Web.js
 */wwwroot/lib
 *.pdn
+*.js.map
 
 # User-specific files
 *.suo

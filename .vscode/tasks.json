@@ -10,8 +10,8 @@
                 "isDefault": true
             },
             "dependsOn": [
-                "F# Build",
-                "TypeScript Build"
+                "TypeScript Build",
+                "F# Build"
             ]
         },
         {

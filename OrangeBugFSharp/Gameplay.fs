@@ -85,10 +85,6 @@ module Gameplay =
                 requireRecentEvent (EntityAttachedEvent { entityId = intent.entityId; position = intent.newPosition })
 
             let emitEvent ctx = gameplay ctx {
-                // only emit event if entity still exists at target
-                // (might have been destroyed during attach, see PinTileBehavior)
-                // TODO: still needed? PinTile now pops balloons in 'update'.
-                let! _ = MapAccess.requireEntityExists intent.entityId
                 return! emitNow EntityMoveDuration.value (EntityMovedEvent { 
                     entityId = intent.entityId
                     oldPosition = oldPosition
