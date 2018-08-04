@@ -37,12 +37,12 @@
             "internalConsoleOptions": "openOnSessionStart",
             "launchBrowser": {
                 "enabled": false,
-                "args": "${auto-detect-url}/index.html",
+                "args": "${auto-detect-url}",
                 "windows": {
                     //"command": "cmd.exe",
-                    //"args": "/C start ${auto-detect-url}/index.html"
+                    //"args": "/C start ${auto-detect-url}"
                     "command": "E:/Portables/Chrome64/GoogleChromePortable.exe",
-                    "args": "${auto-detect-url}/index.html"
+                    "args": "${auto-detect-url}"
                 },
                 "osx": {
                     "command": "open"
@@ -63,7 +63,7 @@
             "name": "OrangeBugFSharp.Web (Client)",
             "type": "chrome",
             "request": "launch",
-            "url": "http://localhost:5000/index.html",
+            "url": "http://localhost:5000",
             "webRoot": "${workspaceRoot}/OrangeBugFSharp.Web/wwwroot"
         }
     ]

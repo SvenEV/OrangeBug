@@ -23,8 +23,8 @@ type Startup private () =
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     member this.Configure(app: IApplicationBuilder, env: IHostingEnvironment) =
-        app.UseStaticFiles() |> ignore
         app.UseDefaultFiles() |> ignore
+        app.UseStaticFiles() |> ignore
         app.UseSignalR(fun hubs -> hubs.MapHub<GameHub>(PathString "/game")) |> ignore
 
     member val Configuration : IConfiguration = null with get, set
