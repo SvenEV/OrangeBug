@@ -85,7 +85,7 @@ module Gameplay =
                 requireRecentEvent (EntityAttachedEvent { entityId = intent.entityId; position = intent.newPosition })
 
             let emitEvent ctx = gameplay ctx {
-                return! emitNow EntityMoveDuration.value (EntityMovedEvent { 
+                return! emitNow intent.duration.value (EntityMovedEvent { 
                     entityId = intent.entityId
                     oldPosition = oldPosition
                     newPosition = intent.newPosition

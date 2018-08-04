@@ -19,7 +19,13 @@ type Startup private () =
         // Add framework services.
         services.AddSignalR().AddJsonProtocol(fun options ->
             options.PayloadSerializerSettings <-
-                JsonSerializerSettings(Converters = [| MapConverter(); DiscriminatedUnionConverter() |])) |> ignore
+                JsonSerializerSettings(
+                    Converters = [|
+                        MapConverter()
+                        GameTimeConverter()
+                        GameTimeSpanConverter()
+                        DiscriminatedUnionConverter()
+                    |])) |> ignore
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     member this.Configure(app: IApplicationBuilder, env: IHostingEnvironment) =

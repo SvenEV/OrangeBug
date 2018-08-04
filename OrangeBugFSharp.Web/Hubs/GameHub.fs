@@ -11,7 +11,7 @@ type GameHub(hub: IHubContext<GameHub>) =
 
     member this.Join() = async {
         
-        let onEvents (events: Event list, time: GameTime) =
+        let onEvents (events: ScheduledEvent list, time: GameTime) =
             hub.Clients.All.SendAsync("ReceiveEvents", events, time.value) |> ignore
 
         let onSimulationChanged (simulation: Simulation) =

@@ -1,5 +1,5 @@
 ﻿import { Scene, WebGLRenderer, AmbientLight, AudioListener, OrthographicCamera, Clock, Vector3 } from "three"
-import { Point, GameMap, EntityId, GameEvent } from "./CommonTypes"
+import { Point, GameMap, EntityId, ScheduledEvent } from "./CommonTypes"
 import { EntityVisual } from "./EntityVisual";
 import { TileVisual } from "./TileVisual";
 import { MeshFactory } from "./MeshFactory";
@@ -103,54 +103,54 @@ export class GameScene {
         this.camera.updateProjectionMatrix()
     }
 
-    handleEvent(event: GameEvent, time: number) {
+    handleEvent(ev: ScheduledEvent, time: number) {
         this.time = time // sync time with server
 
-        switch (event.$type) {
+        switch (ev.event.$type) {
             case "EntityMovedEvent": {
-                let entityVisual = this.mapSceneInfo.getEntity(event.props.entityId)
-                let p = event.props.newPosition
+                let entityVisual = this.mapSceneInfo.getEntity(ev.event.props.entityId)
+                let p = ev.event.props.newPosition
                 entityVisual.moveAnimation = {
                     startPosition: entityVisual.position.clone(),
                     endPosition: new Vector3(p.x, p.y, 1),
                     startTime: time,
-                    duration: 2
+                    duration: ev.duration
                 }
                 break
             }
 
             case "PlayerRotatedEvent": {
-                let entityVisual = this.mapSceneInfo.getEntity(event.props.entityId)
-                entityVisual.orientation = event.props.orientation
+                let entityVisual = this.mapSceneInfo.getEntity(ev.event.props.entityId)
+                entityVisual.orientation = ev.event.props.orientation
                 break
             }
 
             case "GateOpenedEvent":
             case "GateClosedEvent": {
-                let tileVisual = this.mapSceneInfo.getTileAt(event.props.position)
-                tileVisual.tile.state = event.props.gate
+                let tileVisual = this.mapSceneInfo.getTileAt(ev.event.props.position)
+                tileVisual.tile.state = ev.event.props.gate
                 tileVisual.updateVisual()
                 break
             }
 
             case "BalloonColoredEvent": {
-                let entityVisual = this.mapSceneInfo.getEntity(event.props.entityId)
-                entityVisual.entity.state = event.props.balloon
+                let entityVisual = this.mapSceneInfo.getEntity(ev.event.props.entityId)
+                entityVisual.entity.state = ev.event.props.balloon
                 entityVisual.updateVisual()
-                let tileVisual = this.mapSceneInfo.getTileAt(event.props.inkPosition)
+                let tileVisual = this.mapSceneInfo.getTileAt(ev.event.props.inkPosition)
                 tileVisual.tile = { $type: "PathTile", state: null }
                 break
             }
 
             case "BalloonPoppedEvent": {
-                let entityVisual = this.mapSceneInfo.getEntity(event.props.entityId)
-                this.mapSceneInfo.entities.delete(event.props.entityId)
+                let entityVisual = this.mapSceneInfo.getEntity(ev.event.props.entityId)
+                this.mapSceneInfo.entities.delete(ev.event.props.entityId)
                 this.scene.remove(entityVisual)
                 break
             }
 
             default:
-                console.warn("Unhandled '" + event.$type + "': " + event)
+                console.warn("Unhandled '" + ev.event.$type + "': " + ev)
                 break
         }
     }
