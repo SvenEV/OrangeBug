@@ -280,7 +280,8 @@ module Behavior =
                         PistonExtendedEvent { position = intent.position; piston = { piston with isExtended = true } }
                         |> emitNow 4
 
-                    match ctx |> (tryExtend =&&=> emitEvent) with
+                    let! result = tryExtend =&&=> emitEvent
+                    match result with
                     | Accepted events -> return Accepted events
                     | Rejected trace ->
                         // register dependencies on all tiles along the "push path" so that if something

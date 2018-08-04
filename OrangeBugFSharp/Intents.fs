@@ -95,6 +95,8 @@ type GameplayBuilder(context) =
         match x context.map with
         | AssertTrue x -> f x
         | AssertFalse msg -> Rejected (ErrorTrace.Log msg)
+    member __.Bind(x, f) =
+        f (x context)
     member __.Return(result: IntentResult) = result
     member __.ReturnFrom(f: IntentContext -> IntentResult) = f context
     member __.ReturnFrom(intent: Intent) = context.doHandleIntent intent context
