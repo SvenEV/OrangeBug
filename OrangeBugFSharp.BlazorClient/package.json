@@ -1,0 +1,23 @@
+{
+  "name": "OrangeBugFSharp.BlazorClient",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aspnet/signalr": "^1.0.0",
+    "requirejs": "2.3.5",
+    "three": "0.94.0",
+    "@types/three": "0.92.14"
+  },
+  "devDependencies": {
+    "gulp": "4.0.0",
+    "del": "3.0.0",
+    "typescript": "2.9.2"
+  }
+}
