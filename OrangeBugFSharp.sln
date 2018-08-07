@@ -9,6 +9,8 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "OrangeBugFSharp.Web", "Oran
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "OrangeBugFSharp.ConsoleClient", "OrangeBugFSharp.ConsoleClient\OrangeBugFSharp.ConsoleClient.fsproj", "{4EFB3B7E-5F45-4CBB-A306-2DFB087F721D}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OrangeBugFSharp.BlazorClient", "OrangeBugFSharp.BlazorClient\OrangeBugFSharp.BlazorClient.csproj", "{3366E53B-1D4A-4626-9CFD-C3C10C63582A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{4EFB3B7E-5F45-4CBB-A306-2DFB087F721D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4EFB3B7E-5F45-4CBB-A306-2DFB087F721D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4EFB3B7E-5F45-4CBB-A306-2DFB087F721D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3366E53B-1D4A-4626-9CFD-C3C10C63582A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3366E53B-1D4A-4626-9CFD-C3C10C63582A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3366E53B-1D4A-4626-9CFD-C3C10C63582A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3366E53B-1D4A-4626-9CFD-C3C10C63582A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -72,10 +72,27 @@ class GameClient {
         document.getElementById("arrowControls").style.display = "none"
     }
 
-    onReceiveInitialMap(json: string, initialMap: GameMap, initialTime: number, tickTargetTime: number) {
-        initialMap = JSON.parse(json) as GameMap
+    onSignal(json: string) {
+        let signal = JSON.parse(json)
+        let client = (window as any).OrangeBug as GameClient
 
-        (window as any).OrangeBug.scene = new GameScene(initialMap, initialTime, tickTargetTime)
+        switch (signal.$type) {
+            case "ReceiveInitialMap":
+                client.onReceiveInitialMap(signal.map, signal.time, signal.tickTargetTime)
+                break
+
+            case "ReceiveEvents":
+                client.onReceiveEvents(signal.events, signal.time)
+                break
+
+            case "ReceiveDebugText":
+                client.onReceiveDebugText(signal.text)
+                break
+        }
+    }
+
+    onReceiveInitialMap(initialMap: GameMap, initialTime: number, tickTargetTime: number) {
+        this.scene = new GameScene(initialMap, initialTime, tickTargetTime)
         console.info(initialMap)
         window.onresize = () => this.scene.adjustForWindowSize()
     }
@@ -90,7 +107,8 @@ class GameClient {
     }
 
     movePlayer(direction: Direction) {
-        this.connection.invoke("MovePlayer", direction)    
+        //this.connection.invoke("MovePlayer", direction)
+        (window as any).DotNet.invokeMethod("OrangeBugFSharp.BlazorClient", "RequestMovePlayer", direction.toString())
     }
 }
 

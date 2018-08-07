@@ -4,11 +4,16 @@ open OrangeBug
 open OrangeBug.Game
 
 type Signal =
-| ReceiveInitialMap of GameMapState * GameTime
-| ReceiveEvents of ScheduledEvent list * GameTime
-| ReceiveDebugText of string
+| ReceiveInitialMap of map: GameMapState * time: GameTime * tickTargetTime: float
+| ReceiveEvents of events: ScheduledEvent list * time: GameTime
+| ReceiveDebugText of text: string
+
+type Request =
+| RequestIntent of intent: Intent
 
 module SessionManager =
+    open OrangeBug.Game
+
     type GameSession = {
         id: string
         clock: SimulationClock
@@ -39,6 +44,14 @@ module SessionManager =
                 simulation = initialSimulation
             }
             sessions <- sessions |> Map.add id newSession
+            onSignal (ReceiveInitialMap (initialSimulation.map, initialSimulation.time, Simulation.TickTargetTime.TotalSeconds))
+    
+    let handleRequest id request =
+        match sessions.TryFind id with
+        | None -> failwithf "Tried to handle request for non-existent session '%s" id
+        | Some session ->
+            match request with
+            | RequestIntent intent -> session.clock.queueIntent intent
     
     let kill id =
         match sessions.TryFind id with
