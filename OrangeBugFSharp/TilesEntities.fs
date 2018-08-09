@@ -5,6 +5,7 @@ open OrangeBug
 module EntityId =
     let mutable nextEntityId = 0
 
+[<StructuredFormatDisplay("#{id}")>]
 type EntityId = 
     { id: int }
     static member create =

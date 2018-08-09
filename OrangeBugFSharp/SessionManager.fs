@@ -12,7 +12,7 @@ type Request =
 | RequestIntent of intent: Intent
 
 module SessionManager =
-    open OrangeBug.Game
+    open System
 
     type GameSession = {
         id: string
@@ -59,3 +59,4 @@ module SessionManager =
         | Some session ->
             session.clock.stop()
             sessions <- sessions.Remove id
+            Console.Clear()
