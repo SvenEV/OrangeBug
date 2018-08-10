@@ -13,7 +13,7 @@
 
 #---------------------------------- Content ---------------------------------#
 
-#begin ../../Assets/Sprites/BalloonBlue.png
+#begin ../Assets/Sprites/BalloonBlue.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -23,9 +23,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/BalloonBlue.png
+/build:../Assets/Sprites/BalloonBlue.png
 
-#begin ../../Assets/Sprites/BalloonGreen.png
+#begin ../Assets/Sprites/BalloonGreen.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -35,9 +35,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/BalloonGreen.png
+/build:../Assets/Sprites/BalloonGreen.png
 
-#begin ../../Assets/Sprites/BalloonRed.png
+#begin ../Assets/Sprites/BalloonRed.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -47,9 +47,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/BalloonRed.png
+/build:../Assets/Sprites/BalloonRed.png
 
-#begin ../../Assets/Sprites/Blocker.png
+#begin ../Assets/Sprites/Blocker.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -59,9 +59,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Blocker.png
+/build:../Assets/Sprites/Blocker.png
 
-#begin ../../Assets/Sprites/Box.png
+#begin ../Assets/Sprites/Box.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -71,9 +71,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Box.png
+/build:../Assets/Sprites/Box.png
 
-#begin ../../Assets/Sprites/BoxTarget.png
+#begin ../Assets/Sprites/BoxTarget.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -83,9 +83,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/BoxTarget.png
+/build:../Assets/Sprites/BoxTarget.png
 
-#begin ../../Assets/Sprites/Button.png
+#begin ../Assets/Sprites/Button.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -95,9 +95,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Button.png
+/build:../Assets/Sprites/Button.png
 
-#begin ../../Assets/Sprites/Button2.png
+#begin ../Assets/Sprites/Button2.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -107,9 +107,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Button2.png
+/build:../Assets/Sprites/Button2.png
 
-#begin ../../Assets/Sprites/Coin.png
+#begin ../Assets/Sprites/Coin.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -119,9 +119,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Coin.png
+/build:../Assets/Sprites/Coin.png
 
-#begin ../../Assets/Sprites/Corner.png
+#begin ../Assets/Sprites/Corner.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -131,9 +131,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Corner.png
+/build:../Assets/Sprites/Corner.png
 
-#begin ../../Assets/Sprites/Exit.png
+#begin ../Assets/Sprites/Exit.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -143,9 +143,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Exit.png
+/build:../Assets/Sprites/Exit.png
 
-#begin ../../Assets/Sprites/GateClosed.png
+#begin ../Assets/Sprites/GateClosed.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -155,9 +155,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/GateClosed.png
+/build:../Assets/Sprites/GateClosed.png
 
-#begin ../../Assets/Sprites/GateOpened.png
+#begin ../Assets/Sprites/GateOpened.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -167,9 +167,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/GateOpened.png
+/build:../Assets/Sprites/GateOpened.png
 
-#begin ../../Assets/Sprites/InkBlue.png
+#begin ../Assets/Sprites/InkBlue.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -179,9 +179,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/InkBlue.png
+/build:../Assets/Sprites/InkBlue.png
 
-#begin ../../Assets/Sprites/InkGreen.png
+#begin ../Assets/Sprites/InkGreen.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -191,9 +191,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/InkGreen.png
+/build:../Assets/Sprites/InkGreen.png
 
-#begin ../../Assets/Sprites/InkRed.png
+#begin ../Assets/Sprites/InkRed.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -203,9 +203,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/InkRed.png
+/build:../Assets/Sprites/InkRed.png
 
-#begin ../../Assets/Sprites/NoSprite.png
+#begin ../Assets/Sprites/NoSprite.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -215,9 +215,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/NoSprite.png
+/build:../Assets/Sprites/NoSprite.png
 
-#begin ../../Assets/Sprites/Path.png
+#begin ../Assets/Sprites/Path.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -227,9 +227,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Path.png
+/build:../Assets/Sprites/Path.png
 
-#begin ../../Assets/Sprites/PinBlue.png
+#begin ../Assets/Sprites/PinBlue.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -239,9 +239,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/PinBlue.png
+/build:../Assets/Sprites/PinBlue.png
 
-#begin ../../Assets/Sprites/PinGreen.png
+#begin ../Assets/Sprites/PinGreen.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -251,9 +251,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/PinGreen.png
+/build:../Assets/Sprites/PinGreen.png
 
-#begin ../../Assets/Sprites/PinRed.png
+#begin ../Assets/Sprites/PinRed.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -263,9 +263,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/PinRed.png
+/build:../Assets/Sprites/PinRed.png
 
-#begin ../../Assets/Sprites/Piston.png
+#begin ../Assets/Sprites/Piston.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -275,9 +275,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Piston.png
+/build:../Assets/Sprites/Piston.png
 
-#begin ../../Assets/Sprites/PistonEntity.png
+#begin ../Assets/Sprites/PistonEntity.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -287,9 +287,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/PistonEntity.png
+/build:../Assets/Sprites/PistonEntity.png
 
-#begin ../../Assets/Sprites/Player.png
+#begin ../Assets/Sprites/Player.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -299,9 +299,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Player.png
+/build:../Assets/Sprites/Player.png
 
-#begin ../../Assets/Sprites/Teleporter.png
+#begin ../Assets/Sprites/Teleporter.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -311,9 +311,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Teleporter.png
+/build:../Assets/Sprites/Teleporter.png
 
-#begin ../../Assets/Sprites/Wall.png
+#begin ../Assets/Sprites/Wall.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -323,83 +323,83 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:../../Assets/Sprites/Wall.png
+/build:../Assets/Sprites/Wall.png
 
-#begin ../../Assets/Sounds/BalloonColor.mp3
+#begin ../Assets/Sounds/BalloonColor.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/BalloonColor.mp3
+/build:../Assets/Sounds/BalloonColor.mp3
 
-#begin ../../Assets/Sounds/BalloonPop.mp3
+#begin ../Assets/Sounds/BalloonPop.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/BalloonPop.mp3
+/build:../Assets/Sounds/BalloonPop.mp3
 
-#begin ../../Assets/Sounds/BoxMove.mp3
+#begin ../Assets/Sounds/BoxMove.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/BoxMove.mp3
+/build:../Assets/Sounds/BoxMove.mp3
 
-#begin ../../Assets/Sounds/ButtonPress.mp3
+#begin ../Assets/Sounds/ButtonPress.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/ButtonPress.mp3
+/build:../Assets/Sounds/ButtonPress.mp3
 
-#begin ../../Assets/Sounds/ButtonRelease.mp3
+#begin ../Assets/Sounds/ButtonRelease.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/ButtonRelease.mp3
+/build:../Assets/Sounds/ButtonRelease.mp3
 
-#begin ../../Assets/Sounds/CoinCollect.mp3
+#begin ../Assets/Sounds/CoinCollect.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/CoinCollect.mp3
+/build:../Assets/Sounds/CoinCollect.mp3
 
-#begin ../../Assets/Sounds/GateClose.mp3
+#begin ../Assets/Sounds/GateClose.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/GateClose.mp3
+/build:../Assets/Sounds/GateClose.mp3
 
-#begin ../../Assets/Sounds/GateOpen.mp3
+#begin ../Assets/Sounds/GateOpen.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/GateOpen.mp3
+/build:../Assets/Sounds/GateOpen.mp3
 
-#begin ../../Assets/Sounds/GenericClick.mp3
+#begin ../Assets/Sounds/GenericClick.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/GenericClick.mp3
+/build:../Assets/Sounds/GenericClick.mp3
 
-#begin ../../Assets/Sounds/GenericDing.mp3
+#begin ../Assets/Sounds/GenericDing.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/GenericDing.mp3
+/build:../Assets/Sounds/GenericDing.mp3
 
-#begin ../../Assets/Sounds/PistonExtend.mp3
+#begin ../Assets/Sounds/PistonExtend.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/PistonExtend.mp3
+/build:../Assets/Sounds/PistonExtend.mp3
 
-#begin ../../Assets/Sounds/PistonRetract.mp3
+#begin ../Assets/Sounds/PistonRetract.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/PistonRetract.mp3
+/build:../Assets/Sounds/PistonRetract.mp3
 
-#begin ../../Assets/Sounds/Teleport.mp3
+#begin ../Assets/Sounds/Teleport.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
 /processorParam:Quality=Best
-/build:../../Assets/Sounds/Teleport.mp3
+/build:../Assets/Sounds/Teleport.mp3
 

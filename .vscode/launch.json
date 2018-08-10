@@ -5,28 +5,35 @@
     "version": "0.2.0",
     "compounds": [
         {
-            "name": "OrangeBugFSharp.Web",
+            "name": "OrangeBug Web",
             "configurations": [
-                "OrangeBugFSharp.Web (Server)",
-                "OrangeBugFSharp.Web (Client)"
+                "OrangeBug Web Server",
+                "OrangeBug Web Client"
             ]
         }
     ],
     "configurations": [
         {
-            "name": "OrangeBugFSharp.ConsoleClient",
+            "name": "OrangeBug ConsoleClient",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "F# Build",
             "program": "${workspaceFolder}/OrangeBugFSharp.ConsoleClient/bin/Debug/netcoreapp2.1/OrangeBugFSharp.ConsoleClient.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "internalConsoleOptions": "openOnSessionStart"
         },
         {
-            "name": "OrangeBugFSharp.Web (Server)",
+            "name": "OrangeBug DesktopClient",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "F# Build",
+            "program": "${workspaceFolder}/OrangeBugFSharp.DesktopClient/bin/Debug/netcoreapp2.0/OrangeBugFSharp.DesktopClient.dll",
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "OrangeBug Web Server",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "Build All",
@@ -60,7 +67,7 @@
             }
         },
         {
-            "name": "OrangeBugFSharp.Web (Client)",
+            "name": "OrangeBug Web Client",
             "type": "chrome",
             "request": "launch",
             "url": "http://localhost:5000",
