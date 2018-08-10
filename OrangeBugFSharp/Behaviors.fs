@@ -154,9 +154,9 @@ module Behavior =
                 | _ -> return Accepted []
             }
        
-            getStaticDependencies = fun tile ->
-                let (GateTile gate) = tile
-                [ AbsoluteMapDependency gate.triggerPosition ]
+            getStaticDependencies = function
+                | GateTile gate -> [ AbsoluteMapDependency gate.triggerPosition ]
+                | _ -> []
     }
 
     let TeleporterTileBehavior = {
@@ -324,9 +324,9 @@ module Behavior =
                 | _ -> return Accepted []
             }
 
-            getStaticDependencies = fun tile ->
-                let (PistonTile piston) = tile
-                [ AbsoluteMapDependency piston.triggerPosition ]
+            getStaticDependencies = function
+                | PistonTile piston -> [ AbsoluteMapDependency piston.triggerPosition ]
+                | _ -> []
     }
 
 
