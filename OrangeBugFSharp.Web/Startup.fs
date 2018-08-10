@@ -8,6 +8,8 @@ open Microsoft.Extensions.DependencyInjection
 open Newtonsoft.Json
 open OrangeBug.Serialization
 open OrangeBug.Web.Hubs
+open Microsoft.Extensions.FileProviders
+open System.IO
 
 type Startup private () =
     new (configuration: IConfiguration) as this =
@@ -29,8 +31,13 @@ type Startup private () =
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     member this.Configure(app: IApplicationBuilder, env: IHostingEnvironment) =
+        let assetsFolder =
+            let path = Path.Combine(Directory.GetCurrentDirectory(), "..", "Assets")
+            StaticFileOptions(FileProvider = new PhysicalFileProvider(path))
+
         app.UseDefaultFiles() |> ignore
         app.UseStaticFiles() |> ignore
+        app.UseStaticFiles(assetsFolder) |> ignore            
         app.UseSignalR(fun hubs -> hubs.MapHub<GameHub>(PathString "/game")) |> ignore
 
     member val Configuration : IConfiguration = null with get, set

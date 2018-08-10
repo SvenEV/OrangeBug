@@ -6,6 +6,7 @@
 */wwwroot/lib
 *.pdn
 *.js.map
+OrangeBugFSharp.DesktopClient/Content/Assets
 
 # User-specific files
 *.suo
