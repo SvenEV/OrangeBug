@@ -4,6 +4,7 @@ export type Tile = { $type: string, state: { [key: string]: any } }
 export type Entity = { $type: string, state: { [key: string]: any } }
 export type Effect = { $type: string, props: { [key: string]: any } }
 export type GameEvent = { $type: string, props: { [key: string]: any } }
+export type ScheduledEvent = { time: number, duration: number, event: GameEvent }
 
 export class Point {
     x: number

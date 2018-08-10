@@ -1,6 +1,6 @@
 ﻿import * as SignalR from "@aspnet/signalr"
 import { GameScene } from "./GameScene";
-import { GameMap, Direction } from "./CommonTypes";
+import { GameMap, Direction, ScheduledEvent } from "./CommonTypes";
 
 class GameClient {
 
@@ -25,7 +25,7 @@ class GameClient {
             window.onresize = () => this.scene.adjustForWindowSize()
         })
 
-        this.connection.on("ReceiveEvents", (events: any[], time: number) => {
+        this.connection.on("ReceiveEvents", (events: ScheduledEvent[], time: number) => {
             // remember, events.forEach(this.scene.handleEvent) doesn't work for some reason
             events.forEach(e => this.scene.handleEvent(e, time))
         })

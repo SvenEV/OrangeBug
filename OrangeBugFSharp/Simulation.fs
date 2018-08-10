@@ -27,7 +27,7 @@ module Simulation =
     open System.Collections.Concurrent
 
     // 1 / TickTargetTime = frames per second
-    let TickTargetTime = TimeSpan.FromSeconds 0.25
+    let TickTargetTime = TimeSpan.FromSeconds 0.125
 
     let create initialMap = {
         map = initialMap
@@ -82,13 +82,13 @@ module Simulation =
                 printfn "Failed to process intent '%O': %s" intent trace.log 
                 sim
             | Accepted events -> { sim with scheduledEvents = sim.scheduledEvents @ events }
-
+        
         let simAfterIntents = intentsToProcess |> Seq.fold processScheduledIntent simulation
-        { simAfterIntents with scheduledIntents = futureIntents }
+        intentsToProcess, { simAfterIntents with scheduledIntents = futureIntents }
 
     /// <summary>
     /// Consumes 'scheduledEvents', updates 'map' and
-    /// produces 'activeEvents' and 'scheduledIntents' (via IntentScheduledEvent)
+    /// produces 'activeEvents' and 'scheduledIntents' (via IntentScheduledEvent).
     /// </summary>
     let processScheduledEvents simulation =
         let eventsToApply, futureEvents = 
@@ -102,7 +102,7 @@ module Simulation =
                 | IntentScheduledEvent ev -> { intent = ev.intent :?> Intent; time = ev.time } :: scheduledIntents
                 | _ -> scheduledIntents
             newMap, newIntents
-
+        
         let newMap, newIntents = eventsToApply |> Seq.fold applyScheduledEvent (simulation.map, simulation.scheduledIntents)
 
         eventsToApply, {
@@ -115,33 +115,29 @@ module Simulation =
 
     /// <summary>
     /// Consumes 'activeEvents' producing 'scheduledEvents' (tile updates).
-    /// If no event is active, 'time' is advanced by 1 tick.
     /// </summary>
     let processActiveEvents simulation =
         let eventsToRemove, remainingEvents =
             simulation.activeEvents
             |> List.partition (fun ev -> ev.time.value + ev.duration.value <= simulation.time.value)
 
-        match eventsToRemove with
-        | [] -> { simulation with time = simulation.time + (GameTimeSpan 1) }
-        | _ ->
-            // Schedule tile updates for affected tiles
-            let updateEvents =
-                eventsToRemove
-                |> Seq.collect (fun ev -> Gameplay.eventToAffectedPoints ev.event)
-                |> Set.ofSeq
-                |> Seq.map (fun p ->
-                    {
+        // Schedule tile updates for affected tiles
+        let updateEvents =
+            eventsToRemove
+            |> Seq.collect (fun ev -> Gameplay.eventToAffectedPoints ev.event)
+            |> Set.ofSeq
+            |> Seq.map (fun p ->
+                {
+                    time = simulation.time
+                    duration = GameTimeSpan 0
+                    event = IntentScheduledEvent {
+                        intent = UpdateTileIntent { position = p }
                         time = simulation.time
-                        duration = GameTimeSpan 0
-                        event = IntentScheduledEvent {
-                            intent = UpdateTileIntent { position = p }
-                            time = simulation.time
-                        }
-                    })
-                |> List.ofSeq
+                    }
+                })
+            |> List.ofSeq
 
-            { simulation with activeEvents = remainingEvents; scheduledEvents = simulation.scheduledEvents @ updateEvents }
+        eventsToRemove, { simulation with activeEvents = remainingEvents; scheduledEvents = simulation.scheduledEvents @ updateEvents }
     
     /// <summary>
     /// Processes all intents and events scheduled for the current time and then increases the time by 1 tick.
@@ -155,18 +151,27 @@ module Simulation =
         // 3. Remove completed events from 'activeEvents' and schedule tile updates
         //    for all directly affected tiles.
         let mutable sim = simulation
-        let mutable processedEvents = []
+        let mutable totalEvents = []
 
         while sim.time = simulation.time do
-            let newEvents, newSim =
-                sim
-                |> processScheduledIntents
-                |> processScheduledEvents
+            let appliedEvents, newSim = processScheduledEvents sim
+            let removedEvents, newSim = processActiveEvents newSim
+            let processedIntents, newSim = processScheduledIntents newSim
+            
+            if appliedEvents.Length + removedEvents.Length + processedIntents.Length > 0 then
+                printfn "%s========== Simulating for time %i ==========" Environment.NewLine sim.time.value
+                if not appliedEvents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, appliedEvents |> Seq.map (fun ev -> sprintf "APPLIED: %A" ev.event)))
+                if not removedEvents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, removedEvents |> Seq.map (fun ev -> sprintf "REMOVED: %A" ev.event)))
+                if not processedIntents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, processedIntents |> Seq.map (fun i -> sprintf "PROCESSED: %A" i.intent)))
+            
+            sim <-
+                if newSim.scheduledEvents |> Seq.exists (fun ev -> ev.time <= newSim.time)
+                then newSim // continue simulating for current time
+                else { newSim with time = newSim.time + (GameTimeSpan 1) }
+            
+            totalEvents <- totalEvents @ appliedEvents
 
-            sim <- processActiveEvents newSim
-            processedEvents <- processedEvents @ (newEvents |> List.map (fun ev -> ev.event))
-
-        sim, processedEvents
+        sim, totalEvents
 
     let private runSimulation initialSimulation (cancellationToken: CancellationToken) (intentQueue: Intent ConcurrentQueue) onSimulationChanged onEvents = async {
         let stopwatch = Stopwatch.StartNew()

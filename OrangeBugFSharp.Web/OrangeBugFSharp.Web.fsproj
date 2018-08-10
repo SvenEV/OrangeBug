@@ -2,11 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-    <TypeScriptToolsVersion>2.8</TypeScriptToolsVersion>
+    <TypeScriptToolsVersion>2.9</TypeScriptToolsVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="SessionManager.fs" />
     <Compile Include="Hubs/GameHub.fs" />
     <Compile Include="Startup.fs" />
     <Compile Include="Program.fs" />

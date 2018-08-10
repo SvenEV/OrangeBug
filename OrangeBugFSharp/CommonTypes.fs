@@ -27,15 +27,19 @@ module UnionHelper =
             else None
 
 [<Struct>]
+[<StructuredFormatDisplay("({x}, {y})")>]
 type Point = { x: int; y : int }
+
 type InkColor = Red | Green | Blue
 type Direction = North | East | South | West
 
+[<StructuredFormatDisplay("{value}")>]
 type GameTimeSpan = 
     | GameTimeSpan of int
     member this.value = match this with GameTimeSpan v -> v
     static member (+) (a: GameTimeSpan, b: GameTimeSpan) = GameTimeSpan (a.value + b.value)
 
+[<StructuredFormatDisplay("{value}")>]
 type GameTime =
     | GameTime of int // 4 ticks per second
     member this.value = match this with GameTime v -> v

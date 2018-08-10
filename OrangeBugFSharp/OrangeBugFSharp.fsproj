@@ -16,6 +16,7 @@
     <Compile Include="GameMap.fs" />
     <Compile Include="Gameplay.fs" />
     <Compile Include="Simulation.fs" />
+    <Compile Include="SessionManager.fs" />
     <Compile Include="Rendering.fs" />
     <Compile Include="Serialization.fs" />
     <Compile Include="SampleMaps.fs" />
