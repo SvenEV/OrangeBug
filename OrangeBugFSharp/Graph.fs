@@ -67,7 +67,9 @@ module Graph =
             if not (visited.Contains node) then
                 visited.Add node |> ignore
                 yield node
-                graph.outEdges.[node] |> Seq.iter queue.Enqueue
+                match graph.outEdges.TryGetValue node with
+                | true, neighbors -> neighbors |> Seq.iter queue.Enqueue
+                | _ -> ()
     }
 
     /// <summary>
