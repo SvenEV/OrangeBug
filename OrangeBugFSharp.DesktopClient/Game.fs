@@ -1,4 +1,4 @@
-﻿namespace OrangeBugFSharp.DesktopClient
+﻿namespace OrangeBug.DesktopClient
 
 open Microsoft.Xna.Framework
 open Microsoft.Xna.Framework.Graphics

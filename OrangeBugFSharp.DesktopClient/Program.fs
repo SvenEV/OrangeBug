@@ -1,4 +1,4 @@
-﻿module OrangeBugFSharp.DesktopClient.Program
+﻿module OrangeBug.DesktopClient.Program
 
 [<EntryPoint>]
 let main _ =

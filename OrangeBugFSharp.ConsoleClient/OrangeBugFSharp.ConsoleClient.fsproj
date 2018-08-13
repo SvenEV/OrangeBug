@@ -4,9 +4,7 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\OrangeBugFSharp\OrangeBugFSharp.fsproj">
-      <Name>OrangeBugFSharp.fsproj</Name>
-    </ProjectReference>
+    <ProjectReference Include="..\OrangeBugFSharp\OrangeBugFSharp.fsproj" />
     <PackageReference Update="FSharp.Core" Version="4.5.0" />
   </ItemGroup>
   <ItemGroup>

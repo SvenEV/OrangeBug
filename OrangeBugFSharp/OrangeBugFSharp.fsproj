@@ -6,7 +6,7 @@
     <Compile Include="CommonTypes.fs" />
     <Compile Include="CharBitmap.fs" />
     <Compile Include="Grid.fs" />
-    <Compile Include="DependencyGraph.fs" />
+    <Compile Include="Graph.fs" />
     <Compile Include="TilesEntities.fs" />
     <Compile Include="GameMapTypes.fs" />
     <Compile Include="Events.fs" />

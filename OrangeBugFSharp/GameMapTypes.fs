@@ -32,7 +32,10 @@ type GameMapState =
         tiles: TileEntry Grid
         entities: Map<EntityId, EntityEntry>
         players: Map<string, EntityId>
-        dependencies: DependencyGraph
+        
+        // inEdges: e.g. for a button, all gates triggered by that button
+        // outEdges: e.g. for a gate, the button that triggers the gate
+        dependencies: Point Graph
     }
 
     [<JsonProperty("tiles")>]

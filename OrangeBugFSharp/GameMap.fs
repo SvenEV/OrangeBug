@@ -20,12 +20,12 @@ module GameMap =
         let behavior = Behavior.ofTile tile
         let dependencies = dynamicDeps @ behavior.getStaticDependencies tile
         dependencies |> List.fold
-            (fun (g: DependencyGraph) dependency ->
+            (fun (g: Point Graph) dependency ->
                 let target =
                     match dependency with
                     | RelativeMapDependency offset -> position + offset
                     | AbsoluteMapDependency pos -> pos
-                g.addEdge position target)
+                g.AddEdge position target)
             graph
 
     // Map read access
@@ -67,7 +67,7 @@ module GameMap =
 
         let newDependencies =
             map.dependencies
-            |> DependencyGraph.removeOutEdges position
+            |> Graph.removeOutEdges position
             |> addDependenciesForTile newTile position dynamicDeps
             
         let newTiles =
@@ -81,7 +81,7 @@ module GameMap =
    
         let newDependencies =
             map.dependencies
-            |> DependencyGraph.removeOutEdges position
+            |> Graph.removeOutEdges position
             |> addDependenciesForTile tile position dynamicDeps
 
         let newTiles =
@@ -184,5 +184,5 @@ module GameMap =
                 | Point (_, y) when y = height - 1 -> TileEntry.WithoutEntity WallTile
                 | _ -> TileEntry.WithoutEntity PathTile)
 
-            dependencies = DependencyGraph.empty
+            dependencies = Graph.empty
         }
