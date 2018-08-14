@@ -5,13 +5,9 @@ open Microsoft.Xna.Framework.Graphics
 open Microsoft.Xna.Framework.Input
 open OrangeBug
 open OrangeBug.Game
-open OrangeBug.DesktopClient.TransformNode
-open OrangeBug.DesktopClient.TileRendererNode
 open OrangeBug.Hosting
-open Microsoft.Xna.Framework.Graphics
-open System
 open EntityRendererNode
-open Microsoft.Xna.Framework.Input
+open CameraNode
 
 type Game() as g =
     inherit Microsoft.Xna.Framework.Game()
@@ -19,15 +15,19 @@ type Game() as g =
     do g.Content.RootDirectory <- @"D:\Projects\Experimental\OrangeBugFSharp\OrangeBugFSharp.DesktopClient\bin\DesktopGL\Assets" //"../../Assets" // TODO: This doesn't work
     do g.IsMouseVisible <- true
     do g.Window.AllowUserResizing <- true
-    let graphics = new GraphicsDeviceManager(g)
-    let mutable spriteBatch = Unchecked.defaultof<SpriteBatch>
+    let graphics = new GraphicsDeviceManager(g, PreferMultiSampling = true, HardwareModeSwitch = true)
     let mutable scene = EmptyTree
+    let mutable mapSize = Point.zero
+
+    let getSprite name =
+        let texture = g.Content.Load<Texture2D> name
+        { texture = texture; size = Vector2.One; anchorPoint = 0.5f * Vector2.One }
 
     let handleEvent ev =
         match ev.event with
         | EntityMovedEvent ev ->
             let nodeId = sprintf "Entity(%i)" ev.entityId.id
-            scene |> SceneGraph.update nodeId (fun state -> { (state :?> EntityRendererNodeState) with position = ev.newPosition })
+            scene |> SceneGraph.update<EntityRendererNodeState> nodeId (fun state -> { state with position = ev.newPosition } :> obj)
         |_ -> ()
 
     let onSignal =
@@ -41,8 +41,12 @@ type Game() as g =
             let entities =
                 map.entities
                 |> Seq.map (fun kvp -> EntityRendererNode.createSubtree kvp.Key kvp.Value.position kvp.Value.entity)
+            
+            let camera = CameraNode.createSubtree "MainCamera" 10.0f (Vector3(map.size.x / 2 |> float32, map.size.y / 2 - 1 |> float32, 10.0f))
+            let all = tiles |> Seq.append entities |> Seq.append (Seq.singleton camera)
+            scene <- TreeNode (SceneGraph.rootNode, all |> List.ofSeq)
+            mapSize <- map.size
 
-            scene <- TreeNode (SceneGraph.rootNode, Seq.append tiles entities |> List.ofSeq)
         | ReceiveEvents (events, time) ->
             events |> Seq.iter handleEvent
         | _ -> ()
@@ -52,8 +56,7 @@ type Game() as g =
         SessionManager.create onSignal (Simulation.create <| SampleMaps.createInitialMap()) "game"
         base.Initialize()
 
-    override g.LoadContent() =
-        spriteBatch <- new SpriteBatch(g.GraphicsDevice)
+    override g.LoadContent() = ()
 
     override g.Update gameTime =
         if Keyboard.GetState().IsKeyDown(Keys.Escape) then g.Exit()
@@ -63,16 +66,29 @@ type Game() as g =
         if Keyboard.GetState().IsKeyDown(Keys.Left) then requestMove West
         if Keyboard.GetState().IsKeyDown(Keys.Up) then requestMove North
         if Keyboard.GetState().IsKeyDown(Keys.Down) then requestMove South
+
+        let aspectRatioScreen = (float32 g.GraphicsDevice.Viewport.Width) / float32 g.GraphicsDevice.Viewport.Height
+        let aspectRatioMap = (float32 mapSize.x) / float32 mapSize.y
+
+        scene |> SceneGraph.update<CameraNodeState> "MainCamera/Camera" (fun cam ->
+            let size =
+                if aspectRatioScreen > aspectRatioMap
+                then float32 mapSize.y
+                else (float32 mapSize.x) / aspectRatioScreen
+            { cam with size = size } :> obj)
         
         TransformNode.update scene
-        TileRendererNode.update scene (g.Content.Load<Texture2D>)
-        EntityRendererNode.update scene (g.Content.Load<Texture2D>)
+        CameraNode.update scene aspectRatioScreen
+        TileRendererNode.update scene getSprite
+        EntityRendererNode.update scene getSprite
         base.Update(gameTime)
 
     override g.Draw gameTime =
-        g.GraphicsDevice.Clear Color.CornflowerBlue
-        
-        spriteBatch.Begin(transformMatrix = Nullable(Matrix.CreateScale(50.0f)))
-        SpriteRendererNode.draw scene spriteBatch
-        spriteBatch.End()
+        g.GraphicsDevice.Clear Color.DarkBlue
+
+        let camera = scene |> SceneGraph.getAs<CameraNodeState> "MainCamera/Camera"
+
+        SpriteRendererNode.draw scene
+        |> SpriteBatch3D.draw g.GraphicsDevice camera.viewMatrix camera.projectionMatrix
+
         base.Draw(gameTime)

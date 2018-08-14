@@ -8,8 +8,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Extensions.fs" />
+    <Compile Include="SpriteBatch3D.fs" />
     <Compile Include="Tree.fs" />
-    <Compile Include="SceneGraph.fs" />
     <Compile Include="SceneObjects.fs" />
     <Compile Include="Game.fs" />
     <Compile Include="Program.fs" />

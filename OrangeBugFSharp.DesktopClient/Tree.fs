@@ -32,6 +32,7 @@ type SceneGraph = SceneNode Tree
 module SceneGraph =
     let private failAlreadyExists id = failwithf "SceneGraph already contains a node with ID '%A'" id
     let private failNotExists id = failwithf "SceneGraph does not contain a node with ID '%A'" id
+    let private failWrongType id expected = failwithf "Node with ID '%s' is not of expected type '%A'" id expected
 
     let rootNode = { id = ""; state = () }
 
@@ -53,9 +54,18 @@ module SceneGraph =
     let get id tree =
         tree |> Tree.asSeq |> Seq.find (fun n -> n.id = id)
 
-    let update id updater tree =
+    let getAs<'a> id tree =
+        let node = get id tree
+        match node.state with
+        | :? 'a as state -> state
+        | _ -> failWrongType id typedefof<'a>
+
+    let update<'a> id updater tree =
         match tree |> Tree.asSeq |> Seq.tryFind (fun n -> n.id = id) with
-        | Some node -> node.state <- updater node.state
+        | Some node ->
+            match node.state with
+            | :? 'a as state -> node.state <- updater state
+            | _ -> failWrongType id typedefof<'a>
         | None -> failNotExists id
 
     let set id state tree =
