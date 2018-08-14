@@ -3,62 +3,64 @@ namespace OrangeBug.DesktopClient
 open Microsoft.Xna.Framework
 open OrangeBug
 open OrangeBug.Game
-open Microsoft.Xna.Framework.Graphics
-open System
 
-module TransformNode =
-    type TransformNodeState = {
-        localMatrix: Matrix
-        worldMatrix: Matrix
-    }
+type TransformComponent = {
+    mutable localMatrix: Matrix
+    mutable worldMatrix: Matrix
+}
 
-    let create translation = {
+module TransformComponent =
+    let create() = { localMatrix = Matrix.Identity; worldMatrix = Matrix.Identity }
+
+    let createAt translation = {
         localMatrix = Matrix.CreateTranslation(translation)
         worldMatrix = Matrix.Identity
     }
 
-    let update scene =
-        let updateNode id node parentWorldMatrix =
-            let m = node.localMatrix * parentWorldMatrix
-            { node with worldMatrix = m }, m
-        scene |> SceneGraph.iterAndUpdate updateNode Matrix.Identity
+    let updateWorldMatrices scene =
+        let update parentWorldMatrix _ transform =
+            transform.worldMatrix <- transform.localMatrix * parentWorldMatrix
+            transform.worldMatrix
+        scene |> SceneGraph.iterComponents update Matrix.Identity
 
-open TransformNode
 
-module SpriteRendererNode =
-    type SpriteRendererNodeState = {
-        sprite: Sprite option
-    }
+type SpriteRendererComponent = {
+    mutable sprite: Sprite option
+}
+
+module SpriteRendererComponent =
+    let create() = { sprite = None }
 
     let draw scene =
-        let mutable commands = []
+        let drawNode commands node =
+            match node |> SceneNode.tryGetComponent<SpriteRendererComponent>, node |> SceneNode.tryGetComponent<TransformComponent> with
+            | Some renderer, Some transform ->
+                match renderer.sprite with
+                | Some sprite -> DrawSprite (sprite, transform.worldMatrix) :: commands
+                | None -> commands
+            | _ -> commands
 
-        let drawNode id (node: obj) (worldMatrix: Matrix) =
-            match node with
-            | :? TransformNode.TransformNodeState as node -> node.worldMatrix
-            | :? SpriteRendererNodeState as node ->
-                match node.sprite with
-                | Some sprite -> commands <- (DrawSprite (sprite, worldMatrix)) :: commands
-                | None -> ()
-                worldMatrix
-            | _ -> worldMatrix
+        let stateToResult commands = commands
+        let mergeCommands lists = List.concat lists
         
-        scene |> SceneGraph.iter drawNode Matrix.Identity
-        commands
+        scene |> SceneGraph.fold drawNode stateToResult mergeCommands []
 
-open SpriteRendererNode
 
-module TileRendererNode =
-    type TileRendererNodeState = {
-        tile: Tile
-        //orientation: Direction
-    }
+type TileComponent = {
+    mutable tile: Tile
+    //mutable orientation: Direction
+}
 
-    let createSubtree p tile =
-        let transformNode = { id = sprintf "Tile(%i, %i)" p.x p.y; state = TransformNode.create (Vector3(float32 p.x, float32 p.y, 0.0f)) }
-        let tileNode = { id = sprintf "Tile(%i, %i)/Tile" p.x p.y; state = { tile = tile } }
-        let rendererNode = { id = sprintf "Tile(%i, %i)/Tile/Renderer" p.x p.y; state = { sprite = None }}
-        TreeNode (transformNode, [ TreeNode (tileNode, [ TreeNode (rendererNode, []) ]) ])
+module TileComponent =
+    let createNode p tile =
+        {
+            id = sprintf "Tile(%i, %i)" p.x p.y
+            components = [
+                TransformComponent.createAt (Vector3(float32 p.x, float32 p.y, 0.0f))
+                SpriteRendererComponent.create()
+                { tile = tile }
+            ]
+        }
 
     let spriteKey =
         function
@@ -74,29 +76,29 @@ module TileRendererNode =
         | PistonTile _ -> "Piston"
 
     let update scene getSprite =
-        let updateNode id (node: obj) sprite =
-            match node with
-            | :? TileRendererNodeState as node ->
-                let sprite = "Sprites/" + spriteKey node.tile |> getSprite
-                node :> obj, Some sprite
-            | :? SpriteRendererNodeState as node ->
-                { node with sprite = sprite } :> obj, sprite
-            | other -> other, sprite
-        
-        scene |> SceneGraph.iterAndUpdate updateNode None
+        let updateNode _ node comp =
+            match node |> SceneNode.tryGetComponent<SpriteRendererComponent> with
+            | Some renderer -> renderer.sprite <- "Sprites/" + spriteKey comp.tile |> getSprite |> Some
+            | _ -> ()
+        scene |> SceneGraph.iterComponents updateNode ()
 
-module EntityRendererNode =
-    type EntityRendererNodeState = {
-        entity: Entity
-        position: Point
-        //orientation: Direction
-    }
 
-    let createSubtree id p entity =
-        let entityNode = { id = sprintf "Entity(%i)" id.id; state = { entity = entity; position = p } }
-        let transformNode = { id = sprintf "Entity(%i)/Transform" id.id; state = TransformNode.create Vector3.Zero }
-        let rendererNode = { id = sprintf "Entity(%i)/Transform/Renderer" id.id; state = { sprite = None }}
-        TreeNode (entityNode, [ TreeNode (transformNode, [ TreeNode (rendererNode, []) ]) ])
+type EntityComponent = {
+    mutable entity: Entity
+    mutable position: Point
+    //mutable orientation: Direction
+}
+
+module EntityComponent =
+    let createNode id p entity =
+        {
+            id = sprintf "Entity(%i)" id.id
+            components = [
+                TransformComponent.create()
+                SpriteRendererComponent.create()
+                { entity = entity; position = p }
+            ]
+        }
 
     let spriteKey =
         function
@@ -106,37 +108,32 @@ module EntityRendererNode =
         | PistonEntity _ -> "PistonEntity"
 
     let update scene getSprite =
-        let updateNode id (node: obj) (e: EntityRendererNodeState option) =
-            match node with
-            | :? EntityRendererNodeState as node ->
-                node :> obj, Some node
-            | :? TransformNodeState as node ->
-                match e with
-                | Some e ->
-                    let v = Vector3(float32 e.position.x, float32 e.position.y, 1.0f)
-                    { node with localMatrix = Matrix.CreateTranslation(v.X, v.Y, v.Z) } :> obj, Some e
-                | None -> node :> obj, None
-            | :? SpriteRendererNodeState as node ->
-                match e with
-                | Some entityNode ->
-                    let sprite = "Sprites/" + spriteKey entityNode.entity |> getSprite
-                    { node with sprite = Some sprite } :> obj, None
-                | None -> node :> obj, None
-            | other -> other, e
-        
-        scene |> SceneGraph.iterAndUpdate updateNode None
+        let updateNode _ node comp =            
+            match node |> SceneNode.tryGetComponent<TransformComponent> with
+            | Some transform ->
+                let v = Vector3(float32 comp.position.x, float32 comp.position.y, 1.0f)
+                transform.localMatrix <- Matrix.CreateTranslation(v)
+            | _ -> ()
+
+            match node |> SceneNode.tryGetComponent<SpriteRendererComponent> with
+            | Some renderer ->
+                let sprite = "Sprites/" + spriteKey comp.entity |> getSprite
+                renderer.sprite <- Some sprite
+            | _ -> ()
+
+        scene |> SceneGraph.iterComponents updateNode ()
 
 
-module CameraNode =
-    type CameraNodeState = {
-        /// World-to-view matrix
-        viewMatrix: Matrix
-        /// View-to-projection matrix
-        projectionMatrix: Matrix
-        /// Size of the vertical viewing volume (horizontal size calculated accordingly)
-        size: float32
-    }
+type CameraComponent = {
+    /// World-to-view matrix
+    mutable viewMatrix: Matrix
+    /// View-to-projection matrix
+    mutable projectionMatrix: Matrix
+    /// Size of the vertical viewing volume (horizontal size calculated accordingly)
+    mutable size: float32
+}
 
+module CameraComponent =
     // View matrix:
     //     "remapping the World Space so that the camera is in the origin and looks down along the Z axis"
     //     it's the "inverse" of the camera's Model-to-World matrix
@@ -150,22 +147,21 @@ module CameraNode =
     // GPU then drops Z-component and maps [-1,1] to [0,imageWidth/Height]
     // Putting it together: Model-To-World + World-To-View + View-To-Projection (+ GPU-stuff)
 
-    let createSubtree id size position =
-        let transformNode = { id = id; state = TransformNode.create position }
-        let cameraNode = { id = id + "/Camera"; state = { viewMatrix = Matrix.Identity; projectionMatrix = Matrix.Identity; size = size } }
-        TreeNode (transformNode, [ TreeNode (cameraNode, []) ])
-
-    let update (scene: SceneGraph) aspectRatio =
-        let updateNode id (node: obj) worldMatrix =
-            match node with
-            | :? TransformNodeState as node -> node :> obj, node.worldMatrix
-            | :? CameraNodeState as node ->
-                let newState = {
-                    viewMatrix = Matrix.Invert worldMatrix
-                    projectionMatrix = Matrix.CreateOrthographic(node.size * aspectRatio, node.size, -1000.0f, 1000.0f);
-                    size = node.size
-                }
-                newState :> obj, worldMatrix
-            | _ as node -> node, worldMatrix
+    let createNode id size position =
+        {
+            id = id
+            components = [
+                TransformComponent.createAt position
+                { size = size; viewMatrix = Matrix.Identity; projectionMatrix = Matrix.Identity; }
+            ]
+        }
+    
+    let updateCameraMatrices (scene: SceneGraph) aspectRatio =
+        let updateNode _ node camera =
+            match node |> SceneNode.tryGetComponent<TransformComponent> with
+            | None -> ()
+            | Some transform ->
+                camera.viewMatrix <- Matrix.Invert transform.worldMatrix
+                camera.projectionMatrix <- Matrix.CreateOrthographic(camera.size * aspectRatio, camera.size, -1000.0f, 1000.0f);
         
-        scene |> SceneGraph.iterAndUpdate updateNode Matrix.Identity
+        scene |> SceneGraph.iterComponents updateNode ()

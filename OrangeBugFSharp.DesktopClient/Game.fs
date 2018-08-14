@@ -6,8 +6,6 @@ open Microsoft.Xna.Framework.Input
 open OrangeBug
 open OrangeBug.Game
 open OrangeBug.Hosting
-open EntityRendererNode
-open CameraNode
 
 type Game() as g =
     inherit Microsoft.Xna.Framework.Game()
@@ -16,7 +14,7 @@ type Game() as g =
     do g.IsMouseVisible <- true
     do g.Window.AllowUserResizing <- true
     let graphics = new GraphicsDeviceManager(g, PreferMultiSampling = true, HardwareModeSwitch = true)
-    let mutable scene = EmptyTree
+    let mutable scene = SceneGraph.empty
     let mutable mapSize = Point.zero
 
     let getSprite name =
@@ -27,7 +25,10 @@ type Game() as g =
         match ev.event with
         | EntityMovedEvent ev ->
             let nodeId = sprintf "Entity(%i)" ev.entityId.id
-            scene |> SceneGraph.update<EntityRendererNodeState> nodeId (fun state -> { state with position = ev.newPosition } :> obj)
+            let comp = scene |> SceneGraph.tryGetComponent<EntityComponent> nodeId
+            match comp with
+            | Some comp -> comp.position <- ev.newPosition
+            | None -> ()
         |_ -> ()
 
     let onSignal =
@@ -36,15 +37,16 @@ type Game() as g =
             let tiles =
                 map.tiles
                 |> Grid.asSeq
-                |> Seq.map (fun (p, t) -> TileRendererNode.createSubtree p t.tile)
+                |> Seq.map (fun (p, t) -> TileComponent.createNode p t.tile)
 
             let entities =
                 map.entities
-                |> Seq.map (fun kvp -> EntityRendererNode.createSubtree kvp.Key kvp.Value.position kvp.Value.entity)
+                |> Seq.map (fun kvp -> EntityComponent.createNode kvp.Key kvp.Value.position kvp.Value.entity)
             
-            let camera = CameraNode.createSubtree "MainCamera" 10.0f (Vector3(map.size.x / 2 |> float32, map.size.y / 2 - 1 |> float32, 10.0f))
+            let camera = CameraComponent.createNode "MainCamera" 10.0f (Vector3(map.size.x / 2 |> float32, map.size.y / 2 - 1 |> float32, 10.0f))
             let all = tiles |> Seq.append entities |> Seq.append (Seq.singleton camera)
-            scene <- TreeNode (SceneGraph.rootNode, all |> List.ofSeq)
+
+            scene <- all |> Seq.fold (fun g t -> SceneGraph.addOrReplace SceneGraph.rootId t g) SceneGraph.empty
             mapSize <- map.size
 
         | ReceiveEvents (events, time) ->
@@ -70,25 +72,27 @@ type Game() as g =
         let aspectRatioScreen = (float32 g.GraphicsDevice.Viewport.Width) / float32 g.GraphicsDevice.Viewport.Height
         let aspectRatioMap = (float32 mapSize.x) / float32 mapSize.y
 
-        scene |> SceneGraph.update<CameraNodeState> "MainCamera/Camera" (fun cam ->
-            let size =
+        match scene |> SceneGraph.tryGetComponent<CameraComponent> "MainCamera" with
+        | None -> ()
+        | Some cam ->
+            cam.size <-
                 if aspectRatioScreen > aspectRatioMap
                 then float32 mapSize.y
                 else (float32 mapSize.x) / aspectRatioScreen
-            { cam with size = size } :> obj)
         
-        TransformNode.update scene
-        CameraNode.update scene aspectRatioScreen
-        TileRendererNode.update scene getSprite
-        EntityRendererNode.update scene getSprite
+        TransformComponent.updateWorldMatrices scene
+        CameraComponent.updateCameraMatrices scene aspectRatioScreen
+        TileComponent.update scene getSprite
+        EntityComponent.update scene getSprite
         base.Update(gameTime)
 
     override g.Draw gameTime =
         g.GraphicsDevice.Clear Color.DarkBlue
 
-        let camera = scene |> SceneGraph.getAs<CameraNodeState> "MainCamera/Camera"
-
-        SpriteRendererNode.draw scene
-        |> SpriteBatch3D.draw g.GraphicsDevice camera.viewMatrix camera.projectionMatrix
+        match scene |> SceneGraph.tryGetComponent<CameraComponent> "MainCamera" with
+        | None -> ()
+        | Some cam ->
+            SpriteRendererComponent.draw scene
+            |> SpriteBatch3D.draw g.GraphicsDevice cam.viewMatrix cam.projectionMatrix
 
         base.Draw(gameTime)
