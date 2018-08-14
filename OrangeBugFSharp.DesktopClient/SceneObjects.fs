@@ -49,7 +49,6 @@ module SpriteRendererComponent =
 type TileComponent = {
     position: Point
     mutable tile: Tile
-    mutable orientation: Direction
 }
 
 module TileComponent =
@@ -61,7 +60,7 @@ module TileComponent =
             components = [
                 TransformComponent.createAt (Vector3(float32 p.x, float32 p.y, 0.0f))
                 SpriteRendererComponent.create()
-                { position = p; tile = tile; orientation = North }
+                { position = p; tile = tile }
             ]
         }
 
@@ -78,13 +77,19 @@ module TileComponent =
         | CornerTile _ -> "Corner"
         | PistonTile _ -> "Piston"
 
+    let orientation =
+        function
+        | CornerTile state -> state.orientation
+        | PistonTile state -> state.orientation
+        | _ -> North
+
     let update scene getSprite =
         let updateNode _ node comp =
             match node |> SceneNode.tryGetComponent<SpriteRendererComponent>, node |> SceneNode.tryGetComponent<TransformComponent> with
             | Some renderer, Some transform ->
                 renderer.sprite <- "Sprites/" + spriteKey comp.tile |> getSprite |> Some
                 transform.localMatrix <-
-                    Matrix.CreateRotationZ comp.orientation.AsRadians *
+                    Matrix.CreateRotationZ (orientation comp.tile).AsRadians *
                     Matrix.CreateTranslation (comp.position.AsVector3 0.0f)
             | _ -> ()
         scene |> SceneGraph.iterComponents updateNode ()
@@ -93,7 +98,6 @@ module TileComponent =
 type EntityComponent = {
     mutable entity: Entity
     mutable position: Point
-    mutable orientation: Direction
 }
 
 module EntityComponent =
@@ -105,7 +109,7 @@ module EntityComponent =
             components = [
                 TransformComponent.create()
                 SpriteRendererComponent.create()
-                { entity = entity; position = p; orientation = North }
+                { entity = entity; position = p; }
             ]
         }
 
@@ -116,13 +120,19 @@ module EntityComponent =
         | BalloonEntity state -> "Balloon" + (match state.color with Red -> "Red" | Green -> "Green" | Blue -> "Blue")
         | PistonEntity _ -> "PistonEntity"
 
+    let orientation =
+        function
+        | PlayerEntity state -> state.orientation
+        | PistonEntity state -> state.orientation
+        | _ -> North
+
     let update scene getSprite =
         let updateNode _ node comp =            
             match node |> SceneNode.tryGetComponent<TransformComponent> with
             | None -> ()
             | Some transform ->
                 transform.localMatrix <-
-                    Matrix.CreateRotationZ comp.orientation.AsRadians *
+                    Matrix.CreateRotationZ (orientation comp.entity).AsRadians *
                     Matrix.CreateTranslation (comp.position.AsVector3 1.0f)
 
             match node |> SceneNode.tryGetComponent<SpriteRendererComponent> with

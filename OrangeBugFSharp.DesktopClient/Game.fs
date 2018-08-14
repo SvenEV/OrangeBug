@@ -22,20 +22,23 @@ type Game() as g =
         { texture = texture; size = Vector2.One; anchorPoint = 100.0f * Vector2.One }
 
     let handleEvent ev =
+        let updateTileComponent p updater =
+            match scene |> SceneGraph.tryGetComponent<TileComponent> (TileComponent.nodeId p) with
+            | Some comp -> updater comp
+            | None -> ()
+        let updateEntityComponent id updater =
+            match scene |> SceneGraph.tryGetComponent<EntityComponent> (EntityComponent.nodeId id) with
+            | Some comp -> updater comp
+            | None -> ()
+
         match ev.event with
-        | PlayerRotatedEvent ev ->
-            let nodeId = EntityComponent.nodeId ev.entityId
-            match scene |> SceneGraph.tryGetComponent<EntityComponent> nodeId with
-            | Some comp -> comp.orientation <- ev.orientation
-            | None -> ()
-        | EntityMovedEvent ev ->
-            let nodeId = EntityComponent.nodeId ev.entityId
-            match scene |> SceneGraph.tryGetComponent<EntityComponent> nodeId with
-            | Some comp -> comp.position <- ev.newPosition
-            | None -> ()
-        | BalloonPoppedEvent ev ->
-            scene <- scene |> SceneGraph.remove (EntityComponent.nodeId ev.entityId)
-        |_ -> ()
+        | PlayerRotatedEvent ev -> updateEntityComponent ev.entityId (fun c -> c.entity <- PlayerEntity ev.player)
+        | EntityMovedEvent ev -> updateEntityComponent ev.entityId (fun c -> c.position <- ev.newPosition)
+        | BalloonPoppedEvent ev -> scene <- scene |> SceneGraph.remove (EntityComponent.nodeId ev.entityId)
+        | BalloonColoredEvent ev ->
+            updateEntityComponent ev.entityId (fun c -> c.entity <- BalloonEntity ev.balloon)
+            updateTileComponent ev.inkPosition (fun c -> c.tile <- PathTile)
+        | _ -> ()
 
     let onSignal =
         function
