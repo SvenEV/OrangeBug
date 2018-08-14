@@ -19,21 +19,29 @@ type Game() as g =
 
     let getSprite name =
         let texture = g.Content.Load<Texture2D> name
-        { texture = texture; size = Vector2.One; anchorPoint = 0.5f * Vector2.One }
+        { texture = texture; size = Vector2.One; anchorPoint = 100.0f * Vector2.One }
 
     let handleEvent ev =
         match ev.event with
+        | PlayerRotatedEvent ev ->
+            let nodeId = EntityComponent.nodeId ev.entityId
+            match scene |> SceneGraph.tryGetComponent<EntityComponent> nodeId with
+            | Some comp -> comp.orientation <- ev.orientation
+            | None -> ()
         | EntityMovedEvent ev ->
-            let nodeId = sprintf "Entity(%i)" ev.entityId.id
-            let comp = scene |> SceneGraph.tryGetComponent<EntityComponent> nodeId
-            match comp with
+            let nodeId = EntityComponent.nodeId ev.entityId
+            match scene |> SceneGraph.tryGetComponent<EntityComponent> nodeId with
             | Some comp -> comp.position <- ev.newPosition
             | None -> ()
+        | BalloonPoppedEvent ev ->
+            scene <- scene |> SceneGraph.remove (EntityComponent.nodeId ev.entityId)
         |_ -> ()
 
     let onSignal =
         function
         | ReceiveInitialMap (map, time, tickTargetTime) ->
+            let camera = CameraComponent.createNode "MainCamera" 10.0f (Vector3((map.size.x / 2 |> float32) - 0.5f, (map.size.y / 2 |> float32) - 0.5f, 10.0f))
+
             let tiles =
                 map.tiles
                 |> Grid.asSeq
@@ -42,11 +50,13 @@ type Game() as g =
             let entities =
                 map.entities
                 |> Seq.map (fun kvp -> EntityComponent.createNode kvp.Key kvp.Value.position kvp.Value.entity)
-            
-            let camera = CameraComponent.createNode "MainCamera" 10.0f (Vector3(map.size.x / 2 |> float32, map.size.y / 2 - 1 |> float32, 10.0f))
-            let all = tiles |> Seq.append entities |> Seq.append (Seq.singleton camera)
 
-            scene <- all |> Seq.fold (fun g t -> SceneGraph.addOrReplace SceneGraph.rootId t g) SceneGraph.empty
+            scene <-
+                Seq.singleton camera
+                |> Seq.append tiles
+                |> Seq.append entities
+                |> Seq.fold (fun g n -> SceneGraph.addOrReplace SceneGraph.rootId n g) SceneGraph.empty
+            
             mapSize <- map.size
 
         | ReceiveEvents (events, time) ->

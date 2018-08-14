@@ -36,8 +36,8 @@ module SpriteRendererComponent =
             match node |> SceneNode.tryGetComponent<SpriteRendererComponent>, node |> SceneNode.tryGetComponent<TransformComponent> with
             | Some renderer, Some transform ->
                 match renderer.sprite with
-                | Some sprite -> DrawSprite (sprite, transform.worldMatrix) :: commands
                 | None -> commands
+                | Some sprite -> DrawSprite (sprite, transform.worldMatrix) :: commands
             | _ -> commands
 
         let stateToResult commands = commands
@@ -47,18 +47,21 @@ module SpriteRendererComponent =
 
 
 type TileComponent = {
+    position: Point
     mutable tile: Tile
-    //mutable orientation: Direction
+    mutable orientation: Direction
 }
 
 module TileComponent =
+    let nodeId p = sprintf "Tile(%i, %i)" p.x p.y
+
     let createNode p tile =
         {
-            id = sprintf "Tile(%i, %i)" p.x p.y
+            id = nodeId p
             components = [
                 TransformComponent.createAt (Vector3(float32 p.x, float32 p.y, 0.0f))
                 SpriteRendererComponent.create()
-                { tile = tile }
+                { position = p; tile = tile; orientation = North }
             ]
         }
 
@@ -77,8 +80,12 @@ module TileComponent =
 
     let update scene getSprite =
         let updateNode _ node comp =
-            match node |> SceneNode.tryGetComponent<SpriteRendererComponent> with
-            | Some renderer -> renderer.sprite <- "Sprites/" + spriteKey comp.tile |> getSprite |> Some
+            match node |> SceneNode.tryGetComponent<SpriteRendererComponent>, node |> SceneNode.tryGetComponent<TransformComponent> with
+            | Some renderer, Some transform ->
+                renderer.sprite <- "Sprites/" + spriteKey comp.tile |> getSprite |> Some
+                transform.localMatrix <-
+                    Matrix.CreateRotationZ comp.orientation.AsRadians *
+                    Matrix.CreateTranslation (comp.position.AsVector3 0.0f)
             | _ -> ()
         scene |> SceneGraph.iterComponents updateNode ()
 
@@ -86,17 +93,19 @@ module TileComponent =
 type EntityComponent = {
     mutable entity: Entity
     mutable position: Point
-    //mutable orientation: Direction
+    mutable orientation: Direction
 }
 
 module EntityComponent =
+    let nodeId id = sprintf "Entity(%i)" id.id
+
     let createNode id p entity =
         {
-            id = sprintf "Entity(%i)" id.id
+            id = nodeId id
             components = [
                 TransformComponent.create()
                 SpriteRendererComponent.create()
-                { entity = entity; position = p }
+                { entity = entity; position = p; orientation = North }
             ]
         }
 
@@ -110,16 +119,17 @@ module EntityComponent =
     let update scene getSprite =
         let updateNode _ node comp =            
             match node |> SceneNode.tryGetComponent<TransformComponent> with
+            | None -> ()
             | Some transform ->
-                let v = Vector3(float32 comp.position.x, float32 comp.position.y, 1.0f)
-                transform.localMatrix <- Matrix.CreateTranslation(v)
-            | _ -> ()
+                transform.localMatrix <-
+                    Matrix.CreateRotationZ comp.orientation.AsRadians *
+                    Matrix.CreateTranslation (comp.position.AsVector3 1.0f)
 
             match node |> SceneNode.tryGetComponent<SpriteRendererComponent> with
+            | None -> ()
             | Some renderer ->
                 let sprite = "Sprites/" + spriteKey comp.entity |> getSprite
                 renderer.sprite <- Some sprite
-            | _ -> ()
 
         scene |> SceneGraph.iterComponents updateNode ()
 
