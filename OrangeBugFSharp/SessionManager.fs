@@ -4,8 +4,8 @@ open OrangeBug
 open OrangeBug.Game
 
 type Signal =
-| ReceiveInitialMap of map: GameMapState * time: GameTime * tickTargetTime: float
-| ReceiveEvents of events: ScheduledEvent list * time: GameTime
+| ReceiveInitialMap of map: GameMapState * time: SimTime * tickTargetTime: float
+| ReceiveEvents of events: ScheduledEvent list * time: SimTime
 | ReceiveDebugText of text: string
 
 type Request =

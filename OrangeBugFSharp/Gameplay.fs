@@ -4,7 +4,7 @@ module Gameplay =
     open OrangeBug
     open OrangeBug.Game.Intent
 
-    let EntityMoveDuration = GameTimeSpan 2
+    let EntityMoveDuration = SimTimeSpan 2
 
     let handleIntent intent context = gameplay context {
         match intent with
@@ -17,7 +17,7 @@ module Gameplay =
                     |> Seq.map (fun p ->
                         {
                             time = ctx.time
-                            duration = GameTimeSpan 0
+                            duration = SimTimeSpan 0
                             event = IntentScheduledEvent {
                                 intent = UpdateTileIntent { position = p }
                                 time = ctx.time

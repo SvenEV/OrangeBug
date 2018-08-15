@@ -24,8 +24,8 @@ type Startup private () =
                 JsonSerializerSettings(
                     Converters = [|
                         MapConverter()
-                        GameTimeConverter()
-                        GameTimeSpanConverter()
+                        SimTimeConverter()
+                        SimTimeSpanConverter()
                         DiscriminatedUnionConverter()
                     |])) |> ignore
 

@@ -34,16 +34,16 @@ type InkColor = Red | Green | Blue
 type Direction = North | East | South | West
 
 [<StructuredFormatDisplay("{value}")>]
-type GameTimeSpan = 
-    | GameTimeSpan of int
-    member this.value = match this with GameTimeSpan v -> v
-    static member (+) (a: GameTimeSpan, b: GameTimeSpan) = GameTimeSpan (a.value + b.value)
+type SimTimeSpan = 
+    | SimTimeSpan of int
+    member this.value = match this with SimTimeSpan v -> v
+    static member (+) (a: SimTimeSpan, b: SimTimeSpan) = a.value + b.value
 
 [<StructuredFormatDisplay("{value}")>]
-type GameTime =
-    | GameTime of int // 4 ticks per second
-    member this.value = match this with GameTime v -> v
-    static member (+) (time: GameTime, duration: GameTimeSpan) = GameTime (time.value + duration.value)
+type SimTime =
+    | SimTime of int // 4 ticks per second
+    member this.value = match this with SimTime v -> v
+    static member (+) (time: SimTime, duration: SimTimeSpan) = SimTime(time.value + duration.value)
 
 [<AutoOpen>]
 module Point =

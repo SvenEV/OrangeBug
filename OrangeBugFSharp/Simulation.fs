@@ -5,12 +5,12 @@ open System.Threading
 
 type ScheduledIntent = {
     intent: Intent
-    time: GameTime
+    time: SimTime
 }
 
 type Simulation = {
     map: GameMapState
-    time: GameTime
+    time: SimTime
     scheduledIntents: ScheduledIntent list
     scheduledEvents: ScheduledEvent list
     activeEvents: ScheduledEvent list
@@ -31,7 +31,7 @@ module Simulation =
 
     let create initialMap = {
         map = initialMap
-        time = GameTime 0
+        time = SimTime 0
         scheduledIntents = []
         scheduledEvents = []
         activeEvents = []
@@ -129,7 +129,7 @@ module Simulation =
             |> Seq.map (fun p ->
                 {
                     time = simulation.time
-                    duration = GameTimeSpan 0
+                    duration = SimTimeSpan 0
                     event = IntentScheduledEvent {
                         intent = UpdateTileIntent { position = p }
                         time = simulation.time
@@ -167,7 +167,7 @@ module Simulation =
             sim <-
                 if newSim.scheduledEvents |> Seq.exists (fun ev -> ev.time <= newSim.time)
                 then newSim // continue simulating for current time
-                else { newSim with time = newSim.time + (GameTimeSpan 1) }
+                else { newSim with time = newSim.time + (SimTimeSpan 1) }
             
             totalEvents <- totalEvents @ appliedEvents
 

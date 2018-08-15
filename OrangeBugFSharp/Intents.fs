@@ -25,7 +25,7 @@ type MoveEntityIntent = {
     newPosition: Point
     mode: TransportationMode
     initiator: MoveInitiator
-    duration: GameTimeSpan
+    duration: SimTimeSpan
 }
 
 type ClearEntityFromTileIntent = {
@@ -83,7 +83,7 @@ type IntentContext =
 
         events: ScheduledEvent list
         recentEvents: ScheduledEvent list
-        time: GameTime
+        time: SimTime
 
         doHandleIntent: Intent -> IntentContext -> IntentResult
         gameMapApplyEffect: GameMapState -> Effect -> GameMapState
@@ -118,11 +118,11 @@ module Intent =
             {
                 event = ev
                 time = context.time + delay
-                duration = GameTimeSpan duration
+                duration = SimTimeSpan duration
             }
         ]
        
-    let emitNow = emit (GameTimeSpan 0)
+    let emitNow = emit (SimTimeSpan 0)
 
     let inline trace t _ = Rejected t
 

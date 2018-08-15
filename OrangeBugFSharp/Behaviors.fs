@@ -173,7 +173,7 @@ module Behavior =
                             newPosition = teleporter.targetPosition
                             mode = Teleport
                             initiator = SomeTeleporter
-                            duration = GameTimeSpan 4
+                            duration = SimTimeSpan 4
                         }
                     }
                     
@@ -272,7 +272,7 @@ module Behavior =
                             newPosition = intent.position + piston.orientation.asPoint
                             mode = Push piston.force
                             initiator = SomePiston
-                            duration = GameTimeSpan 1
+                            duration = SimTimeSpan 1
                         }
                     }
 
@@ -302,7 +302,7 @@ module Behavior =
                             newPosition = intent.position
                             mode = Push 1 // no need for stronger force here (by the way, TODO: Do we need a Pull-mode?)
                             initiator = SomePiston
-                            duration = GameTimeSpan 1
+                            duration = SimTimeSpan 1
                         }
                     }
 

@@ -141,33 +141,33 @@ module Serialization =
             not (objectType.IsGenericType  && objectType.GetGenericTypeDefinition() = typedefof<option<_>>) &&
             not (FSharpType.IsRecord objectType)
 
-    type GameTimeConverter() =
-        inherit JsonConverter<GameTime>()
+    type SimTimeConverter() =
+        inherit JsonConverter<SimTime>()
 
-        override __.WriteJson(writer: JsonWriter, time: GameTime, _: JsonSerializer) =
+        override __.WriteJson(writer: JsonWriter, time: SimTime, _: JsonSerializer) =
             writer.WriteValue(time.value)
 
         override __.ReadJson(reader, _, _, _, _) =
             match reader.ReadAsInt32() |> Option.ofNullable with
-            | Some time -> GameTime time
-            | None -> failwithf "Could not read GameTime"
+            | Some time -> SimTime time
+            | None -> failwithf "Could not read SimTime"
 
-    type GameTimeSpanConverter() =
-        inherit JsonConverter<GameTimeSpan>()
+    type SimTimeSpanConverter() =
+        inherit JsonConverter<SimTimeSpan>()
 
-        override __.WriteJson(writer: JsonWriter, span: GameTimeSpan, _: JsonSerializer) =
+        override __.WriteJson(writer: JsonWriter, span: SimTimeSpan, _: JsonSerializer) =
             writer.WriteValue(span.value)
 
         override __.ReadJson(reader, _, _, _, _) =
             match reader.ReadAsInt32() |> Option.ofNullable with
-            | Some span -> GameTimeSpan span
-            | None -> failwithf "Could not read GameTimeSpan"
+            | Some span -> SimTimeSpan span
+            | None -> failwithf "Could not read SimTimeSpan"
             
     type GameMapState with
         member this.toJson = 
             JsonConvert.SerializeObject(this,
                 MapConverter(),
-                GameTimeConverter(),
-                GameTimeSpanConverter(),
+                SimTimeConverter(),
+                SimTimeSpanConverter(),
                 //PointConverter(),
                 DiscriminatedUnionConverter())

@@ -2,7 +2,7 @@
 
 open OrangeBug
 
-type IntentScheduledEvent = { intent: obj; time: GameTime } // TODO: intent should be of 'Intent', not 'obj'
+type IntentScheduledEvent = { intent: obj; time: SimTime } // TODO: intent should be of 'Intent', not 'obj'
 type PlayerRotatedEvent = { name: string; entityId: EntityId; player: PlayerEntity; orientation: Direction; }
 type EntityAttachedEvent = { entityId: EntityId; position: Point }
 type EntityDetachedEvent = { entityId: EntityId; position: Point }
@@ -39,6 +39,6 @@ type Event =
 
 type ScheduledEvent = {
     event: Event
-    time: GameTime
-    duration: GameTimeSpan
+    time: SimTime
+    duration: SimTimeSpan
 }
