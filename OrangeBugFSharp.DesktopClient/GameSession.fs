@@ -11,8 +11,8 @@ type GameSession = {
     id: string
     mutable map: GameMapState
     mutable scene: SceneGraph
-    mutable lastSyncTime: TimeSpan
-    mutable simTime: float32
+    mutable queuedSignals: Signal list
+    mutable lastTimeSync: TimeSpan * SimTime
     mutable tickTargetTime: float32
 }
 
@@ -28,17 +28,18 @@ module GameSession =
             | None -> ()
 
         match ev.event with
-        | PlayerRotatedEvent ev -> updateEntityComponent ev.entityId (fun c -> c.entity <- PlayerEntity ev.player)
-        | EntityMovedEvent ev -> updateEntityComponent ev.entityId (fun c -> c.position <- ev.newPosition)
-        | BalloonPoppedEvent ev -> session.scene <- session.scene |> SceneGraph.remove (EntityComponent.nodeId ev.entityId)
-        | BalloonColoredEvent ev ->
-            updateEntityComponent ev.entityId (fun c -> c.entity <- BalloonEntity ev.balloon)
-            updateTileComponent ev.inkPosition (fun c -> c.tile <- PathTile)
+        | PlayerRotatedEvent e -> updateEntityComponent e.entityId (fun c -> c.entity <- PlayerEntity e.player)
+        | EntityMovedEvent e -> updateEntityComponent e.entityId (fun c -> c.positionAnimation <- Animation.create (e.oldPosition.AsVector3 1.0f) (e.newPosition.AsVector3 1.0f) ev.time ev.duration)
+        | BalloonPoppedEvent e -> session.scene <- session.scene |> SceneGraph.remove (EntityComponent.nodeId e.entityId)
+        | BalloonColoredEvent e ->
+            updateEntityComponent e.entityId (fun c -> c.entity <- BalloonEntity e.balloon)
+            updateTileComponent e.inkPosition (fun c -> c.tile <- PathTile)
         | _ -> ()
 
-    let onSignal session =
+    let handleSignal session (gameTime: GameTime) =
         function
         | ReceiveEvents (events, time) ->
+            session.lastTimeSync <- gameTime.TotalGameTime, time
             events |> Seq.iter (handleEvent session)
         | _ -> ()
 
@@ -61,14 +62,19 @@ module GameSession =
         |> Seq.fold (fun g n -> SceneGraph.addOrReplace SceneGraph.rootId n g) SceneGraph.empty
 
     let create id =
-        let session = { id = id; map = GameMap.empty; scene = SceneGraph.empty; lastSyncTime = TimeSpan.Zero; simTime = 0.0f; tickTargetTime = 0.0f }
-        let map, time, tickTargetTime = SessionManager.create (onSignal session) (Simulation.create SampleMaps.sampleMap1) id
+        let session = { id = id; map = GameMap.empty; scene = SceneGraph.empty; queuedSignals = []; lastTimeSync = TimeSpan.Zero, SimTime 0; tickTargetTime = 0.0f }
+        let onSignal signal = session.queuedSignals <- signal :: session.queuedSignals
+        let map, time, tickTargetTime = SessionManager.create onSignal (Simulation.create SampleMaps.sampleMap1) id
         session.map <- map
         session.scene <- buildScene map
-        session.simTime <- float32 time.value
+        session.lastTimeSync <- TimeSpan.Zero, time
         session.tickTargetTime <- float32 tickTargetTime
         session
 
+    let gameToSimTime session (gameTime: GameTime) =
+        let syncGameTime, syncSimTime = session.lastTimeSync
+        float32 syncSimTime.value + (float32 <| gameTime.TotalGameTime.TotalSeconds - syncGameTime.TotalSeconds) / session.tickTargetTime
+    
     let update session getSprite aspectRatioScreen gameTime =
         let requestMove dir = SessionManager.handleRequest session.id (RequestIntent (MovePlayerIntent { name = "Player"; direction = dir }))
         if Keyboard.GetState().IsKeyDown(Keys.Right) then requestMove East
@@ -76,6 +82,13 @@ module GameSession =
         if Keyboard.GetState().IsKeyDown(Keys.Up) then requestMove North
         if Keyboard.GetState().IsKeyDown(Keys.Down) then requestMove South
 
+        // handle queued signals
+        session.queuedSignals |> List.iter (handleSignal session gameTime)
+        session.queuedSignals <- []
+
+        let simTime = gameToSimTime session gameTime
+
+        // update camera size so map fits onto screen
         match session.scene |> SceneGraph.tryGetComponent<CameraComponent> "MainCamera" with
         | None -> ()
         | Some cam ->
@@ -85,10 +98,11 @@ module GameSession =
                     then float32 session.map.size.y
                     else (float32 session.map.size.x) / aspectRatioScreen
         
+        // update scene
         TransformComponent.updateWorldMatrices session.scene
         CameraComponent.updateCameraMatrices session.scene aspectRatioScreen
         TileComponent.update session.scene getSprite
-        EntityComponent.update session.scene getSprite
+        EntityComponent.update session.scene getSprite simTime
 
     let draw session graphicsDevice =
         match session.scene |> SceneGraph.tryGetComponent<CameraComponent> "MainCamera" with

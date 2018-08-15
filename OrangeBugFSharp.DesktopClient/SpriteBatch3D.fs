@@ -33,8 +33,8 @@ module SpriteBatch3D =
             let localMatrix =
                 Matrix.CreateScale(sprite.size.X, sprite.size.Y, 0.0f) *
                 Matrix.CreateTranslation(
-                    -MathHelper.Lerp(0.0f, sprite.size.X, normalizedAnchor.X),
-                    -MathHelper.Lerp(0.0f, sprite.size.Y, normalizedAnchor.Y),
+                    -(lerp 0.0f sprite.size.X normalizedAnchor.X),
+                    -(lerp 0.0f sprite.size.Y normalizedAnchor.Y),
                     0.0f
                 )
 

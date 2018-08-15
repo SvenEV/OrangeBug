@@ -24,8 +24,8 @@ type Game() as g =
     override g.LoadContent() = ()
 
     override g.Update gameTime =
-        base.Update(gameTime)
-        if Keyboard.GetState().IsKeyDown(Keys.Escape) then g.Exit()
+        base.Update gameTime
+        if Keyboard.GetState().IsKeyDown Keys.Escape then g.Exit()
         match session with
         | None -> ()
         | Some session ->
@@ -33,7 +33,7 @@ type Game() as g =
             GameSession.update session getSprite aspectRatio gameTime
         
     override g.Draw gameTime =
-        base.Draw(gameTime)
+        base.Draw gameTime
         g.GraphicsDevice.Clear Color.Black
         match session with
         | None -> ()
