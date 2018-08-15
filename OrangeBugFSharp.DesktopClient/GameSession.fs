@@ -30,6 +30,8 @@ module GameSession =
         match ev.event with
         | PlayerRotatedEvent e -> updateEntityComponent e.entityId (fun c -> c.entity <- PlayerEntity e.player)
         | EntityMovedEvent e -> updateEntityComponent e.entityId (fun c -> c.positionAnimation <- Animation.create (e.oldPosition.AsVector3 1.0f) (e.newPosition.AsVector3 1.0f) ev.time ev.duration)
+        | GateOpenedEvent e -> updateTileComponent e.position (fun c -> c.tile <- GateTile e.gate)
+        | GateClosedEvent e -> updateTileComponent e.position (fun c -> c.tile <- GateTile e.gate)
         | BalloonPoppedEvent e -> session.scene <- session.scene |> SceneGraph.remove (EntityComponent.nodeId e.entityId)
         | BalloonColoredEvent e ->
             updateEntityComponent e.entityId (fun c -> c.entity <- BalloonEntity e.balloon)
