@@ -166,7 +166,7 @@ module EntityComponent =
             match node |> SceneNode.tryGetComponent<TransformComponent> with
             | None -> ()
             | Some transform ->
-                let translation = comp.positionAnimation |> Animation.evaluateVector3 Ease.linear simTime
+                let translation = comp.positionAnimation |> Animation.evaluateVector3 Ease.sineOut simTime
                 transform.localMatrix <-
                     Matrix.CreateRotationZ (orientation comp.entity).AsRadians *
                     Matrix.CreateTranslation translation

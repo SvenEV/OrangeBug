@@ -140,35 +140,33 @@ module Simulation =
         eventsToRemove, { simulation with activeEvents = remainingEvents; scheduledEvents = simulation.scheduledEvents @ updateEvents }
     
     /// <summary>
-    /// Processes all intents and events scheduled for the current time and then increases the time by 1 tick.
-    /// Returns a list of events that were applied.
+    /// Increases the time by 1 tick and then processes all intents and events scheduled for the increased time.
+    /// Returns the resulting simulation and a list of events that were applied.
     /// </summary>
-    let advance simulation =
-        // Repeat until no more 'activeEvents' are completed, hence time is advanced:
-        // 1. Process scheduled intents, resulting in new events being scheduled.
-        // 2. Apply scheduled events to map and move them into 'activeEvents'.
+    let advance (simulation: Simulation) =
+        // Repeat until no more events are scheduled for the advanced time:
+        // 1. Apply scheduled events to map and move them into 'activeEvents'.
         //    'IntentScheduledEvent'-s cause new intents to be scheduled.
-        // 3. Remove completed events from 'activeEvents' and schedule tile updates
+        // 2. Remove completed events from 'activeEvents' and schedule tile updates
         //    for all directly affected tiles.
-        let mutable sim = simulation
+        // 3. Process scheduled intents, resulting in new events being scheduled.
+        let mutable sim = { simulation with time = simulation.time + (SimTimeSpan 1) }
         let mutable totalEvents = []
+        let mutable todo = true
 
-        while sim.time = simulation.time do
+        while todo do
             let appliedEvents, newSim = processScheduledEvents sim
             let removedEvents, newSim = processActiveEvents newSim
             let processedIntents, newSim = processScheduledIntents newSim
-            
+
             if appliedEvents.Length + removedEvents.Length + processedIntents.Length > 0 then
                 printfn "%s========== Simulating for time %i ==========" Environment.NewLine sim.time.value
                 if not appliedEvents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, appliedEvents |> Seq.map (fun ev -> sprintf "APPLIED: %A" ev.event)))
                 if not removedEvents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, removedEvents |> Seq.map (fun ev -> sprintf "REMOVED: %A" ev.event)))
                 if not processedIntents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, processedIntents |> Seq.map (fun i -> sprintf "PROCESSED: %A" i.intent)))
             
-            sim <-
-                if newSim.scheduledEvents |> Seq.exists (fun ev -> ev.time <= newSim.time)
-                then newSim // continue simulating for current time
-                else { newSim with time = newSim.time + (SimTimeSpan 1) }
-            
+            todo <- newSim.scheduledEvents |> Seq.exists (fun ev -> ev.time <= sim.time)            
+            sim <- newSim
             totalEvents <- totalEvents @ appliedEvents
 
         sim, totalEvents
@@ -184,7 +182,7 @@ module Simulation =
             while intentQueue.TryDequeue intent do
                 simulation <- {
                     simulation with
-                        scheduledIntents = simulation.scheduledIntents @ [ { intent = !intent; time = simulation.time } ]
+                        scheduledIntents = simulation.scheduledIntents @ [ { intent = !intent; time = simulation.time + (SimTimeSpan 1) } ]
                 }
 
             // Advance simulation
