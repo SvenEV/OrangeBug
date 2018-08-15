@@ -28,7 +28,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "F# Build",
-            "program": "${workspaceFolder}/OrangeBugFSharp.DesktopClient/bin/Debug/netcoreapp2.0/OrangeBugFSharp.DesktopClient.dll",
+            "program": "${workspaceFolder}/OrangeBugFSharp.DesktopClient/bin/Debug/netcoreapp2.1/OrangeBugFSharp.DesktopClient.dll",
             "console": "internalConsole",
             "internalConsoleOptions": "openOnSessionStart"
         },
