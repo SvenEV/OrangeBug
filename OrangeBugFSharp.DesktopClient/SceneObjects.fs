@@ -95,6 +95,12 @@ module TileComponent =
         scene |> SceneGraph.iterComponents updateNode ()
 
 
+type 'a Animation = {
+    target: 'a
+    startTime: SimTime
+    duration: SimTimeSpan
+}
+
 type EntityComponent = {
     mutable entity: Entity
     mutable position: Point
