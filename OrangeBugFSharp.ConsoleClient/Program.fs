@@ -6,10 +6,9 @@ module Program =
     open System.Text
     open OrangeBug
     open OrangeBug.Game
-    open OrangeBug.Grid
 
     let runGame() =
-        let mutable simulation = Simulation.create (SampleMaps.createInitialMap())
+        let mutable simulation = Simulation.create SampleMaps.sampleMap1
 
         Console.OutputEncoding <- Encoding.UTF8
 

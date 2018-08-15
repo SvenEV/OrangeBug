@@ -33,7 +33,7 @@ type GameHub(hub: IHubContext<GameHub>) =
                 do! Async.AwaitTask(hub.Clients.All.SendAsync("ReceiveDebugText", text))
         }
 
-        let newSimulation = Simulation.create (SampleMaps.createInitialMap())
+        let newSimulation = Simulation.create SampleMaps.sampleMap1
         SessionManager.create (onSignal >> Async.Start) newSimulation this.Context.ConnectionId |> ignore
     }
 

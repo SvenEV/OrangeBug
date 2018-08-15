@@ -14,14 +14,14 @@ type Request =
 module SessionManager =
     open System
 
-    type GameSession = {
+    type private GameSession = {
         id: string
         clock: SimulationClock
         onSignal: Signal -> unit
         mutable simulation: Simulation
     }
 
-    let mutable sessions = Map.empty<string, GameSession>
+    let mutable private sessions = Map.empty<string, GameSession>
 
     let private updateSimulation id newSim =
         match sessions.TryFind id with
@@ -44,7 +44,9 @@ module SessionManager =
                 simulation = initialSimulation
             }
             sessions <- sessions |> Map.add id newSession
-            onSignal (ReceiveInitialMap (initialSimulation.map, initialSimulation.time, Simulation.TickTargetTime.TotalSeconds))
+            let initialMap = (initialSimulation.map, initialSimulation.time, Simulation.TickTargetTime.TotalSeconds)
+            onSignal (ReceiveInitialMap initialMap)
+            initialMap
     
     let handleRequest id request =
         match sessions.TryFind id with

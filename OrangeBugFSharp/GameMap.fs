@@ -163,6 +163,14 @@ module GameMap =
         | EntityDespawnEffect e -> map |> despawnEntity e.position
         | SoundEffect _ -> map
 
+    let empty = {
+        size = Point.zero
+        tiles = Grid.empty Point.zero
+        entities = Map.empty
+        players = Map.empty
+        dependencies = Graph.empty
+    }
+
     let create width height =
         let playerId = EntityId.create
         let playerPos = Point.create 1 1
