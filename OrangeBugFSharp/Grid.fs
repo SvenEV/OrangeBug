@@ -1,6 +1,4 @@
-﻿namespace OrangeBug.Grid
-
-open OrangeBug
+﻿namespace OrangeBug
 
 // An immutable quadtree
 
