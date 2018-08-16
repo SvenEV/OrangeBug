@@ -1,8 +1,8 @@
 ﻿namespace OrangeBug.Game
 
 open Newtonsoft.Json
-open OrangeBug.Grid
 open OrangeBug
+open Microsoft.FSharp.Reflection
 
 type MapDependency =
     | RelativeMapDependency of offset: Point
@@ -61,6 +61,8 @@ type MapAssertion<'a> =
         | None -> AssertFalse errorMessage
 
 module MapAccess =
+    let private domain f = FSharpType.GetFunctionElements (f.GetType()) |> fst
+
     let getTile p accessor =
         AssertTrue (accessor.getTile p)
 
@@ -83,11 +85,11 @@ module MapAccess =
 
     let requireTile (tileType: 'a -> Tile) p accessor =
         let tile, _ = accessor.getTile p
-        unwrapAs tileType tile |> MapAssertion.OfOption (sprintf "Expected tile of type '%O' at %O" tileType p)
+        unwrapAs tileType tile |> MapAssertion.OfOption (sprintf "Expected tile of type '%O' at %O" (domain tileType) p)
 
     let requireTileWithoutEntity (tileType: 'a -> Tile) p accessor =
         let tile, entityId = accessor.getTile p
-        let errorMessage = sprintf "Expected tile of type '%O' without entity at %O" tileType p
+        let errorMessage = sprintf "Expected tile of type '%O' without entity at %O" (domain tileType) p
         match entityId with
         | None -> unwrapAs tileType tile |> MapAssertion.OfOption errorMessage
         | _ -> AssertFalse errorMessage
@@ -95,11 +97,11 @@ module MapAccess =
     let requireEntity (entityType: 'a -> Entity) entityId accessor =
         let entity = accessor.tryGetEntity entityId
         match entity with
-        | None -> AssertFalse (sprintf "Expected entity of type '%O' with ID '%O' (but didn't exist)" entityType entityId)
+        | None -> AssertFalse (sprintf "Expected entity of type '%O' with ID '%O' (but didn't exist)" (domain entityType) entityId)
         | Some (position, state) ->
             unwrapAs entityType state
             |> Option.map (fun e -> position, e)
-            |> MapAssertion.OfOption (sprintf "Expected entity of type '%O' with ID '%O' (but had wrong type)" entityType entityId)
+            |> MapAssertion.OfOption (sprintf "Expected entity of type '%O' with ID '%O' (but had wrong type)" (domain entityType) entityId)
 
     let requireEntityAt (entityType: 'a -> Entity) p accessor =
         let _, entityId = accessor.getTile p
@@ -107,7 +109,7 @@ module MapAccess =
         |> Option.bind accessor.tryGetEntity
         |> Option.bind (fun (_, entity) -> unwrapAs entityType entity)
         |> Option.map (fun entity -> entityId.Value, entity)
-        |> MapAssertion.OfOption (sprintf "Expected entity of type '%O' at %O" entityType p)
+        |> MapAssertion.OfOption (sprintf "Expected entity of type '%O' at %O" (domain entityType) p)
 
     let requireNoEntityAt p accessor =
         let _, entityId = accessor.getTile p
