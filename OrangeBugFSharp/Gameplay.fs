@@ -148,8 +148,6 @@ module Gameplay =
         recentEvents = []
         time = time
         doHandleIntent = handleIntent
-        gameMapApplyEffect = GameMap.applyEffect
-        gameMapCreateAccessor = GameMap.accessor
     }
     
     let createContextWithAccessor map time createAccessor = {
@@ -159,6 +157,4 @@ module Gameplay =
         recentEvents = []
         time = time
         doHandleIntent = handleIntent
-        gameMapApplyEffect = GameMap.applyEffect
-        gameMapCreateAccessor = createAccessor
     }

@@ -66,25 +66,36 @@ module Simulation =
             getPositionsDependentOn = accessor.getPositionsDependentOn
         }
     
-    /// <summary>
-    /// Consumes 'scheduledIntents' producing 'scheduledEvents'
-    /// </summary>
-    let processScheduledIntents simulation =
-        let intentsToProcess, futureIntents =
-            simulation.scheduledIntents
-            |> List.partition (fun intent -> intent.time <= simulation.time)
-
-        let processScheduledIntent sim intent =
-            let context = Gameplay.createContextWithAccessor sim.map sim.time (mapAccessor sim)
-            let result = context |> Intent.handle intent.intent
+    let processScheduledIntent sim intent =
+        let context = Gameplay.createContextWithAccessor sim.map sim.time (mapAccessor sim)
+        let result = context |> Intent.handle intent.intent
+        let newEvents =
             match result with
             | Rejected trace ->
                 printfn "Failed to process intent '%O': %s" intent trace.log 
-                sim
-            | Accepted events -> { sim with scheduledEvents = sim.scheduledEvents @ events }
+                []
+            | Accepted events -> events
+        { sim with
+            scheduledEvents = sim.scheduledEvents @ newEvents
+            scheduledIntents = sim.scheduledIntents |> List.except [ intent ]
+        }
+    
+    /// <summary>
+    /// Consumes at most one of 'scheduledIntents' producing 'scheduledEvents'
+    /// </summary>
+    (*let processScheduledIntents simulation =
+        let intentToProcess =
+            simulation.scheduledIntents
+            |> List.tryFind (fun intent -> intent.time <= simulation.time)
+
+        match intentToProcess with
+        | None -> [], simulation
+        | Some intentToProcess ->
+            let simAfterIntent = processScheduledIntent simulation intentToProcess
+            [ intentToProcess ], simAfterIntent
         
-        let simAfterIntents = intentsToProcess |> Seq.fold processScheduledIntent simulation
-        intentsToProcess, { simAfterIntents with scheduledIntents = futureIntents }
+        intentsToProcess, { simAfterIntents with scheduledIntents = simulation.scheduledIntents |> List.except intentsToProcess } // futureIntents }
+    *)
 
     /// <summary>
     /// Consumes 'scheduledEvents', updates 'map' and
@@ -157,17 +168,26 @@ module Simulation =
         while todo do
             let appliedEvents, newSim = processScheduledEvents sim
             let removedEvents, newSim = processActiveEvents newSim
-            let processedIntents, newSim = processScheduledIntents newSim
-
-            if appliedEvents.Length + removedEvents.Length + processedIntents.Length > 0 then
-                printfn "%s========== Simulating for time %i ==========" Environment.NewLine sim.time.value
-                if not appliedEvents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, appliedEvents |> Seq.map (fun ev -> sprintf "APPLIED: %A" ev.event)))
-                if not removedEvents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, removedEvents |> Seq.map (fun ev -> sprintf "REMOVED: %A" ev.event)))
-                if not processedIntents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, processedIntents |> Seq.map (fun i -> sprintf "PROCESSED: %A" i.intent)))
-            
-            todo <- newSim.scheduledEvents |> Seq.exists (fun ev -> ev.time <= sim.time)            
-            sim <- newSim
             totalEvents <- totalEvents @ appliedEvents
+
+            let intentToProcess =
+                newSim.scheduledIntents
+                |> List.tryFind (fun intent -> intent.time <= newSim.time)
+
+            sim <-
+                match intentToProcess with
+                | None -> newSim
+                | Some intent -> processScheduledIntent newSim intent
+
+            todo <-
+                sim.scheduledEvents |> Seq.exists (fun ev -> ev.time <= sim.time) ||
+                sim.scheduledIntents.Length > 0
+            
+            // if appliedEvents.Length + removedEvents.Length + processedIntents.Length > 0 then
+            //     printfn "%s========== Simulating for time %i ==========" Environment.NewLine sim.time.value
+            //     if not appliedEvents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, appliedEvents |> Seq.map (fun ev -> sprintf "APPLIED: %A" ev.event)))
+            //     if not removedEvents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, removedEvents |> Seq.map (fun ev -> sprintf "REMOVED: %A" ev.event)))
+            //     if not processedIntents.IsEmpty then printfn "%s" (String.Join(Environment.NewLine, processedIntents |> Seq.map (fun i -> sprintf "PROCESSED: %A" i.intent)))
 
         sim, totalEvents
 

@@ -86,8 +86,6 @@ type IntentContext =
         time: SimTime
 
         doHandleIntent: Intent -> IntentContext -> IntentResult
-        gameMapApplyEffect: GameMapState -> Effect -> GameMapState
-        gameMapCreateAccessor: GameMapState -> MapAccessor
     }
 
 type GameplayBuilder(context) =
@@ -132,17 +130,9 @@ module Intent =
         else Rejected (ErrorTrace.Log (sprintf "Expected but didn't find recent event: %O" expected))
 
     let applyEvents context events =
-        let newMap =
-            events 
-            |> Seq.map (fun ev -> ev.event) 
-            |> Seq.collect Effect.eventToEffects
-            |> Seq.fold context.gameMapApplyEffect context.mapState
-        let allEvents = context.events @ events
         {
             context with 
-                mapState = newMap
-                map = context.gameMapCreateAccessor newMap
-                events = allEvents
+                events = context.events @ events
                 recentEvents = events
         }
 
