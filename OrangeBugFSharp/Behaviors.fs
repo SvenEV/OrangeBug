@@ -161,37 +161,49 @@ module Behavior =
 
     let TeleporterTileBehavior = {
         PathTileBehavior with
+            tryAttachEntity = fun intent context -> gameplay context {
+                // if arriving via a teleport, deactivate teleporter to prevent consecutive teleport
+                let deactivateIfTeleporting ctx = gameplay ctx {
+                    if intent.move.mode = Teleport then
+                        let! teleporter = MapAccess.requireTile TeleporterTile intent.move.newPosition
+                        return! emitNow 0 (TeleporterDeactivatedEvent {
+                            position = intent.move.newPosition
+                            teleporter = { teleporter with isActive = false }
+                        })
+                    else
+                        return Accepted []
+                }
+                return! PathTileBehavior.tryAttachEntity intent =&&=> deactivateIfTeleporting
+            }
+
+            tryDetachEntity = fun intent context -> gameplay context {
+                // if currently deactivated, re-activate teleporter
+                let activate ctx = gameplay ctx {
+                    let! teleporter = MapAccess.requireTile TeleporterTile intent.position
+                    if not teleporter.isActive then
+                        return! emitNow 0 (TeleporterActivatedEvent { 
+                            position = intent.position
+                            teleporter = { teleporter with isActive = true }
+                        })
+                    else
+                        return Accepted []
+                }
+                return! PathTileBehavior.tryDetachEntity intent =&&=> activate
+            }
+
             update = fun intent context -> gameplay context {
                 let! teleporter = MapAccess.requireTile TeleporterTile intent.position
                 if teleporter.isActive then
-                    // teleport entity (if target is again a teleporter, temporarily deactivate)
                     let! entityId, _ = MapAccess.requireEntityExistsAt intent.position
-
-                    let doTeleport ctx = gameplay ctx {
-                        return! MoveEntityIntent { 
-                            entityId = entityId
-                            newPosition = teleporter.targetPosition
-                            mode = Teleport
-                            initiator = SomeTeleporter
-                            duration = SimTimeSpan 4
-                        }
+                    return! MoveEntityIntent { 
+                        entityId = entityId
+                        newPosition = teleporter.targetPosition
+                        mode = Teleport
+                        initiator = SomeTeleporter
+                        duration = SimTimeSpan 4
                     }
-                    
-                    let deactivateTargetTeleporter ctx = gameplay ctx {
-                        let! targetTeleporter = MapAccess.requireTile TeleporterTile teleporter.targetPosition
-                        return! emitNow 0 (TeleporterDeactivatedEvent {
-                            position = teleporter.targetPosition
-                            teleporter = { targetTeleporter with isActive = false }
-                        })
-                    }
-                    
-                    return! doTeleport =&&=> attempt deactivateTargetTeleporter
                 else
-                    // do not teleport but re-activate teleporter
-                    return! emitNow 0 (TeleporterActivatedEvent { 
-                        position = intent.position
-                        teleporter = { teleporter with isActive = true }
-                    })
+                    return Accepted []
             }
     }
     
