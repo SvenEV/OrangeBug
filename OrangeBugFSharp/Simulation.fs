@@ -75,7 +75,7 @@ module Simulation =
         let newEvents =
             match result with
             | Rejected trace ->
-                printfn "Failed to process intent '%O': %s" intent trace.log 
+                Lox.printmd (sprintf "**Failed to process intent '%O'**: %s" intent trace.log)
                 []
             | Accepted events -> events
         { sim with

@@ -1,0 +1,39 @@
+<html>
+    <head>
+        <style type="text/css">
+            body {
+                background-color: #1E1E1E;
+                color: white;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif
+            }
+            #logs div:nth-child(odd) {
+                background-color: #252526
+            }
+            p {
+                margin: 0
+            }
+        </style>
+    </head>
+    <body>
+        <h2>Lox</h2>
+        <div id="logs">
+
+        <script src="signalr.min.js"></script>
+        <script type="text/javascript">
+            let connection = new signalR.HubConnectionBuilder()
+                .withUrl("/lox")
+                .build();
+            
+            connection.on("ReceiveLog", data => {
+                var row = document.createElement("div");
+                row.innerHTML = data;
+                var isAtBottom = Math.abs(document.body.scrollHeight - document.body.scrollTop - document.body.clientHeight) < 10
+                document.getElementById("logs").appendChild(row);
+                if (isAtBottom) row.scrollIntoView();
+            });
+            
+            connection.start()
+                .then(() => {});
+        </script>
+    </body>
+</html>

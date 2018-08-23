@@ -84,17 +84,21 @@ module GameSession =
         if Keyboard.GetState().IsKeyDown(Keys.Left) then requestMove West
         if Keyboard.GetState().IsKeyDown(Keys.Up) then requestMove North
         if Keyboard.GetState().IsKeyDown(Keys.Down) then requestMove South
-
+        
         // advance simulation according to passed time
         let simTime = gameToSimTime session gameTime
 
         let advance (sim, evs) _ =
             let newSim, newEvents = Simulation.advance sim
+            Lox.printmd (sprintf "Advanced simulation from `%i` to `%i`" sim.time.value newSim.time.value)
             newSim, evs @ newEvents
 
         let newSim, events =
             [session.simulation.time.value .. int simTime - 1]
             |> Seq.fold advance (session.simulation, [])
+
+        if Keyboard.GetState().IsKeyDown(Keys.F1) && (int simTime <> session.simulation.time.value) then
+            LoxServer.launchBrowser()
 
         session.simulation <- newSim
         events |> Seq.iter (handleEvent session)
