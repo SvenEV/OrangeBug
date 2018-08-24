@@ -1,4 +1,4 @@
-module LoxServer
+module LoxLib.LoxServer
 
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
@@ -12,13 +12,13 @@ open System.Diagnostics
 open System.Threading.Tasks
 open CommonMark
 open Lox
+open Newtonsoft.Json
+open Serialization
 
 let mutable debugCommands : LoxCommand list = []
 
-type CommandDto = { label: string }
-
 type LogMessage = {
-    text: string
+    elements: LogElement list
     category: string
     time: string
 }
@@ -26,29 +26,23 @@ type LogMessage = {
 type LogHub() =
     inherit Hub()
     override hub.OnConnectedAsync() =
-        let dtos = debugCommands |> Seq.map (fun cmd -> { label = cmd.label })
-        hub.Clients.Caller.SendAsync("ReceiveCommands", dtos)
+        hub.Clients.Caller.SendAsync("ReceiveCommands", debugCommands)
     member __.InvokeCommand(label: string) =
         match debugCommands |> Seq.tryFind (fun cmd -> cmd.label = label) with
         | None -> ()
         | Some command -> command.action()
 
-
-let print (hub: IHubContext<LogHub>) (text: string) =
+let log (hub: IHubContext<LogHub>) (elements: LogElement list) =
     let message = {
-        text = text
+        elements = elements
         category = "General"
         time = DateTimeOffset.Now.ToString("yyyy-MM-dd hh:mm:ss")
     }
     hub.Clients.All.SendAsync("ReceiveLog", message) |> ignore
 
-let printmd (hub: IHubContext<LogHub>) =
-    CommonMarkConverter.Convert >> print hub
-
 let setCommands (hub: IHubContext<LogHub>) (commands: LoxCommand list) =
     debugCommands <- commands
-    let dtos = debugCommands |> Seq.map (fun cmd -> { label = cmd.label })
-    hub.Clients.All.SendAsync("ReceiveCommands", dtos) |> ignore
+    hub.Clients.All.SendAsync("ReceiveCommands", commands) |> ignore
 
 type Startup() =
     let serveFile (context: HttpContext) (next: Func<Task>) =
@@ -62,7 +56,11 @@ type Startup() =
         | file -> file.CopyToAsync(context.Response.Body)
 
     member __.ConfigureServices(services: IServiceCollection) =
-        services.AddSignalR() |> ignore
+        services.AddSignalR()
+            .AddJsonProtocol(fun options ->
+                options.PayloadSerializerSettings.Converters.Add(MapConverter())
+                options.PayloadSerializerSettings.Converters.Add(DiscriminatedUnionConverter())) |> ignore
+        ()
 
     member __.Configure(app: IApplicationBuilder, env: IHostingEnvironment, hub: IHubContext<LogHub>) =
         if env.IsDevelopment() then app.UseDeveloperExceptionPage() |> ignore
@@ -70,8 +68,7 @@ type Startup() =
         app.Use(serveFile) |> ignore
 
         Lox.logger <- Some {
-            print = print hub
-            printmd = printmd hub
+            log = log hub
             setCommands = setCommands hub
         }
         ()

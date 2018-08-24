@@ -1,6 +1,7 @@
 ﻿namespace OrangeBug.Game
 
 open OrangeBug
+open LoxLib
 open System.Threading
 
 type ScheduledIntent = {

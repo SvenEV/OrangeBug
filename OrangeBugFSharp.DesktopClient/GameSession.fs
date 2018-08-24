@@ -1,6 +1,7 @@
 namespace OrangeBug.DesktopClient
 
 open System
+open LoxLib
 open OrangeBug
 open OrangeBug.Game
 open Microsoft.Xna.Framework
@@ -90,7 +91,6 @@ module GameSession =
 
         let advance (sim, evs) _ =
             let newSim, newEvents = Simulation.advance sim
-            Lox.printmd (sprintf "Advanced simulation from `%i` to `%i`" sim.time.value newSim.time.value)
             newSim, evs @ newEvents
 
         let newSim, events =

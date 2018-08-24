@@ -10,6 +10,7 @@ open OrangeBug.Serialization
 open OrangeBug.Web.Hubs
 open Microsoft.Extensions.FileProviders
 open System.IO
+open LoxLib.Serialization
 
 type Startup private () =
     new (configuration: IConfiguration) as this =

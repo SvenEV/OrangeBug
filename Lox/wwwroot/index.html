@@ -1,10 +1,13 @@
+<!DOCTYPE html>
 <html>
     <head>
+        <meta charset="utf-8"/>
         <style type="text/css">
             #app {
                 display: grid;
                 grid-template-rows: auto 1fr;
                 overflow: hidden;
+                position: absolute;
                 width: 100%;
                 height: 100%;
             }
@@ -19,7 +22,7 @@
                 font-weight: bold;
                 font-size: larger;
             }
-            header h1 {
+            header > h1 {
                 background-color: #FFD800;
                 margin: 0;
                 padding: 8px 12px;
@@ -56,11 +59,27 @@
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 overflow: hidden;
             }
-            #logs div:nth-child(odd) {
+            #logs > div:nth-child(odd) {
                 background-color: #252526
             }
             p {
                 margin: 0
+            }
+            .tree-node-expander {
+                font-weight: bold;
+                display: inline-block;
+                width: 10px;
+                cursor: pointer;
+                color: #FFD800;
+            }
+            .tree-node-label {
+                cursor: pointer;
+                font-family: 'Courier New', Courier, monospace
+            }
+            .tree-node-children {
+                margin-left: 4px;
+                padding-left: 8px;
+                border-left: 1px dotted gray;
             }
         </style>
     </head>
@@ -82,38 +101,73 @@
         <script src="signalr.min.js"></script>
         <script type="text/javascript">
             Vue.component('log-message', {
-                props: [ 'time', 'category', 'text' ],
+                props: [ 'time', 'category', 'elements' ],
                 template: `
-                    <div class="log-message" style="padding: 4px 12px; display: grid; grid-template-columns: 150px 1fr min-content; align-items: center;">
-                        <code style="font-size: small; color: gray; overflow: hidden;">
+                    <div class="log-message" style="padding: 4px 12px; display: grid; grid-template-columns: 142px 1fr min-content; grid-gap: 8px;">
+                        <code style="font-size: small; color: gray; overflow: hidden; margin-top: 4px;">
                             <strong>{{time}}</strong>
                         </code>
-                        <span v-html="text"></span>
+                        <div style="display: grid; grid-auto-flow: row; grid-gap: 4px;">
+                            <log-element v-for="elem in elements" :element="elem"></log-element>
+                        </div>
                         <code>#{{category}}</code>
                     </div>
                 `
             });
 
+            Vue.component('tree-node', {
+                props: {
+                    text: { type: String },
+                    object: { },
+                    isExpanded: { type: Boolean }
+                },
+                data: c => { return { expand: c.isExpanded } },
+                computed: {
+                    isPrimitive: function () {
+                        var t = typeof this.object;
+                        return t !== "object" || Object.keys(this.object).length === 0
+                    }
+                },
+                template: `
+                    <div class="tree-node">
+                        <span class="tree-node-expander" :style="{ visibility: isPrimitive ? 'visible' : 'visible' }" v-on:click="expand = !expand">
+                            {{isPrimitive ? '&nbsp;·' : (expand ? 'v' : '>')}}
+                        </span>
+                        <span class="tree-node-label" v-on:click="expand = !expand">
+                            {{isPrimitive ? (text + ": " + object) : text}}
+                        </span>
+                        <div class="tree-node-children" v-if="!isPrimitive && expand">
+                            <tree-node v-for="(value, key) in object" :text="key.toString()" :object="value">
+                            </tree-node>
+                        </div>
+                    </div>
+                `
+            })
+
+            Vue.component('log-element', {
+                props: [ 'element' ],
+                template: `
+                    <div class="log-element">
+                        <span v-if="element.$type === 'LogMessage'">{{element.text}}</span>
+                        <span v-if="element.$type === 'LogMarkdown'" v-html="element.text"></span>
+                        <div v-if="element.$type === 'LogCommandBar'" style="display: grid; grid-auto-flow: column; grid-gap: 8px; grid-auto-columns: min-content;">
+                            <button v-for="cmd in element.commands">{{cmd.label}}</button>
+                        </div>
+                        <tree-node v-if="element.$type === 'LogObject'"
+                            :isExpanded="true"
+                            :text="element.label"    
+                            :object="element.o">
+                        </tree-node>
+                    </div>
+                `
+            })
+
             var app = new Vue({
                 el: "#app",
                 data: {
                     connection: null,
-                    logs: [
-                        {
-                            time: "2018-08-23 23:43",
-                            category: "Common",
-                            text: "Hello World!"
-                        },
-                        {
-                            time: "2018-08-23 23:43",
-                            category: "Common",
-                            text: "Another one here!"
-                        }
-                    ],
-                    commands: [
-                        { label: "Go" },
-                        { label: "Quit" }
-                    ]
+                    logs: [],
+                    commands: []
                 },
                 created: function () {
                     this.connection = new signalR.HubConnectionBuilder()
@@ -139,6 +193,69 @@
                         .then(() => {
                             app.logs = []
                             app.commands = []
+                        })
+                        .catch(() => {
+                            app.logs = [
+                                {
+                                    time: "2018-08-23 23:43:00",
+                                    category: "General",
+                                    elements: [
+                                        {
+                                            $type: "LogMarkdown",
+                                            text: "Hello World!"
+                                        },
+                                        {
+                                            $type: "LogCommandBar",
+                                            commands: [
+                                                { label: "Pause" },
+                                                { label: "Resume" },
+                                                { label: "Stop" }
+                                            ]
+                                        },
+                                        {
+                                            $type: "LogObject",
+                                            label: "a sample object",
+                                            o: {
+                                                name: {
+                                                    first: "Sven",
+                                                    last: "V"
+                                                },
+                                                age: 23,
+                                                addresses: [
+                                                    {
+                                                        street: "Main street",
+                                                        number: 99,
+                                                        city: {
+                                                            name: "Somecity",
+                                                            zip: 12345
+                                                        }
+                                                    },
+                                                    {
+                                                        street: "Secondary street",
+                                                        city: "Somecity"
+                                                    }
+                                                ],
+                                                emptyObj: {},
+                                                emptyArr: []
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    time: "2018-08-23 23:43:51",
+                                    category: "General",
+                                    elements: [
+                                        {
+                                            $type: "LogMessage",
+                                            text: "Hello World!"
+                                        }
+                                    ]
+                                }
+                            ];
+                            app.commands = [
+                                { label: "Go" },
+                                { label: "Quit" }
+                            ];
                         });
                 }
             })

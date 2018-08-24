@@ -5,7 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Library.fs" />
+    <Compile Include="Serialization.fs" />
+    <Compile Include="Abstractions.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+      <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
   </ItemGroup>
 
 </Project>

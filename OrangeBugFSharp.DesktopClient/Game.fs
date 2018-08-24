@@ -1,5 +1,6 @@
 ﻿namespace OrangeBug.DesktopClient
 
+open LoxLib
 open Microsoft.Xna.Framework
 open Microsoft.Xna.Framework.Graphics
 open Microsoft.Xna.Framework.Input
@@ -19,6 +20,16 @@ type Game() as g =
 
     override g.Initialize() =
         session <- Some (GameSession.create "mainSession")
+        Lox.setCommands [
+            { label = "Quit"; action = fun () -> System.Environment.Exit(0) }
+            {
+                label = "Snapshot"
+                action = fun () ->
+                    Lox.log [
+                        LogObject ("Simulation at " + session.Value.simulation.time.value.ToString(), session.Value.simulation)
+                    ]
+            }
+        ]
         base.Initialize()
 
     override g.LoadContent() = ()
