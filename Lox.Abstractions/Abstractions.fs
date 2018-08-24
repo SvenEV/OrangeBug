@@ -1,6 +1,8 @@
 namespace LoxLib
 
 open Newtonsoft.Json
+open SixLabors.ImageSharp
+open SixLabors.ImageSharp.PixelFormats
 
 type LoxCommand = {
     label: string
@@ -13,6 +15,7 @@ type LogElement =
     | LogMarkdown of text: string
     | LogObject of label: string * o: obj
     | LogCommandBar of commands: LoxCommand list
+    | LogImage of image: Image<Rgba32>
 
 type Logger = {
     log: LogElement list -> unit

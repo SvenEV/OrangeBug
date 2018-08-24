@@ -158,6 +158,7 @@
                             :text="element.label"    
                             :object="element.o">
                         </tree-node>
+                        <img v-if="element.$type === 'LogImage'" :src="element.image" />
                     </div>
                 `
             })

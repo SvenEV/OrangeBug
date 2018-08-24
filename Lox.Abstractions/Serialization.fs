@@ -2,9 +2,12 @@ module LoxLib.Serialization
 
 open System
 open System.Collections
+open System.IO
 open Microsoft.FSharp.Reflection
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
+open SixLabors.ImageSharp
+open SixLabors.ImageSharp.PixelFormats
 
 type MapConverter() =
     inherit JsonConverter()
@@ -125,3 +128,15 @@ type DiscriminatedUnionConverter() =
         not (objectType.IsGenericType  && objectType.GetGenericTypeDefinition() = typedefof<list<_>>) &&
         not (objectType.IsGenericType  && objectType.GetGenericTypeDefinition() = typedefof<option<_>>) &&
         not (FSharpType.IsRecord objectType)
+
+type ImageConverter() =
+    inherit JsonConverter<Image<Rgba32>>()
+
+    override __.WriteJson(writer: JsonWriter, image: Image<Rgba32>, _: JsonSerializer) =
+        use stream = new MemoryStream()
+        image.SaveAsPng(stream)
+        let base64 = "data:image/png;base64," + Convert.ToBase64String(stream.ToArray())
+        writer.WriteValue(base64)
+
+    override __.ReadJson(reader, _, _, _, _) =
+        raise <| NotImplementedException()

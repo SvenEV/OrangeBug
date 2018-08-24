@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Lox.Abstractions\Lox.Abstractions.fsproj" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta0005" />
     <PackageReference Update="FSharp.Core" Version="4.5.2" />
   </ItemGroup>
 </Project>

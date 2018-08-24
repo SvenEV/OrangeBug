@@ -4,6 +4,7 @@ open LoxLib
 open Microsoft.Xna.Framework
 open Microsoft.Xna.Framework.Graphics
 open Microsoft.Xna.Framework.Input
+open OrangeBug
 
 type Game() as g =
     inherit Microsoft.Xna.Framework.Game()
@@ -26,6 +27,7 @@ type Game() as g =
                 label = "Snapshot"
                 action = fun () ->
                     Lox.log [
+                        LogImage (Rendering.mapAsImage session.Value.simulation.map)
                         LogObject ("Simulation at " + session.Value.simulation.time.value.ToString(), session.Value.simulation)
                     ]
             }

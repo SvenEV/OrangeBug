@@ -58,6 +58,7 @@ type Startup() =
     member __.ConfigureServices(services: IServiceCollection) =
         services.AddSignalR()
             .AddJsonProtocol(fun options ->
+                options.PayloadSerializerSettings.Converters.Add(ImageConverter())
                 options.PayloadSerializerSettings.Converters.Add(MapConverter())
                 options.PayloadSerializerSettings.Converters.Add(DiscriminatedUnionConverter())) |> ignore
         ()

@@ -1,5 +1,10 @@
 ﻿namespace OrangeBug
 
+open SixLabors.Primitives;
+open SixLabors.ImageSharp
+open SixLabors.ImageSharp.PixelFormats
+open SixLabors.ImageSharp.Processing;
+
 module Rendering =
     open System
     open OrangeBug.Game
@@ -51,3 +56,14 @@ module Rendering =
         
         rows
 
+    let mapAsImage (map: GameMapState) =
+        // TODO
+        let tileSize = 16
+        let image = new Image<Rgba32>(map.size.x * tileSize, map.size.y * tileSize)
+        let wallSprite = Image.Load<Rgba32>(@"Assets\Sprites\Wall.png")
+        for y in [0 .. map.size.y - 1] do
+            for x in [0 .. map.size.x - 1] do
+                let drawWall (ctx: IImageProcessingContext<Rgba32>) =
+                    ctx.DrawImage(GraphicsOptions.Default, wallSprite, new Point(x * tileSize, y * tileSize)) |> ignore
+                image.Mutate(drawWall)
+        image

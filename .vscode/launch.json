@@ -30,7 +30,8 @@
             "preLaunchTask": "F# Build",
             "program": "${workspaceFolder}/OrangeBugFSharp.DesktopClient/bin/Debug/netcoreapp2.1/OrangeBugFSharp.DesktopClient.dll",
             "console": "internalConsole",
-            "internalConsoleOptions": "openOnSessionStart"
+            "internalConsoleOptions": "openOnSessionStart",
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "OrangeBug Web Server",
