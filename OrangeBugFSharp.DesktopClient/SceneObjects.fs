@@ -64,19 +64,6 @@ module TileComponent =
             ]
         }
 
-    let spriteKey =
-        function
-        | PathTile -> "Path"
-        | WallTile -> "Wall"
-        | LockedTile -> "" // shouldn't happen
-        | InkTile state -> "Ink" + (match state.color with Red -> "Red" | Green -> "Green" | Blue -> "Blue")
-        | PinTile state -> "Pin" + (match state.color with Red -> "Red" | Green -> "Green" | Blue -> "Blue")
-        | ButtonTile _ -> "Button"
-        | GateTile state -> if state.isOpen then "GateOpened" else "GateClosed"
-        | TeleporterTile _ -> "Teleporter"
-        | CornerTile _ -> "Corner"
-        | PistonTile _ -> "Piston"
-
     let orientation =
         function
         | CornerTile state -> state.orientation
@@ -87,7 +74,7 @@ module TileComponent =
         let updateNode _ node comp =
             match node |> SceneNode.tryGetComponent<SpriteRendererComponent>, node |> SceneNode.tryGetComponent<TransformComponent> with
             | Some renderer, Some transform ->
-                renderer.sprite <- "Sprites/" + spriteKey comp.tile |> getSprite |> Some
+                renderer.sprite <- "Sprites/" + Rendering.tileSpriteKey comp.tile |> getSprite |> Some
                 transform.localMatrix <-
                     Matrix.CreateRotationZ (orientation comp.tile).AsRadians *
                     Matrix.CreateTranslation (comp.position.AsVector3 0.0f)
@@ -148,13 +135,6 @@ module EntityComponent =
             ]
         }
 
-    let spriteKey =
-        function
-        | PlayerEntity _ -> "Player"
-        | BoxEntity _ -> "Box"
-        | BalloonEntity state -> "Balloon" + (match state.color with Red -> "Red" | Green -> "Green" | Blue -> "Blue")
-        | PistonEntity _ -> "PistonEntity"
-
     let orientation =
         function
         | PlayerEntity state -> state.orientation
@@ -174,7 +154,7 @@ module EntityComponent =
             match node |> SceneNode.tryGetComponent<SpriteRendererComponent> with
             | None -> ()
             | Some renderer ->
-                let sprite = "Sprites/" + spriteKey comp.entity |> getSprite
+                let sprite = "Sprites/" + Rendering.entitySpriteKey comp.entity |> getSprite
                 renderer.sprite <- Some sprite
 
         scene |> SceneGraph.iterComponents updateNode ()
