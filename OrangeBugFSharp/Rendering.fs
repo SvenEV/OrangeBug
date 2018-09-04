@@ -48,13 +48,14 @@ module Rendering =
     let mapAsImage (map: GameMapState) =
         let tileSize = ImageCache.spriteSize
         let image = new Image<Rgba32>(map.size.x * tileSize, map.size.y * tileSize)
+        // TODO: Orientation of tiles and entities
         
         for y in [0 .. map.size.y - 1] do
             for x in [0 .. map.size.x - 1] do
                 let p = Point.create x y
                 let drawTile (ctx: IImageProcessingContext<Rgba32>) =
                     let sprite = (map.tiles.Find p).tile |> tileSpriteKey |> ImageCache.get
-                    let location = SixLabors.Primitives.Point(tileSize * x, image.Height - tileSize * y)
+                    let location = SixLabors.Primitives.Point(tileSize * x, tileSize * (map.size.y - y - 1))
                     ctx.DrawImage(GraphicsOptions.Default, sprite, location) |> ignore
                 image.Mutate(drawTile)
 
@@ -62,7 +63,7 @@ module Rendering =
             let drawEntity (ctx: IImageProcessingContext<Rgba32>) =
                 let p = e.Value.position
                 let sprite = e.Value.entity |> entitySpriteKey |> ImageCache.get
-                let location = SixLabors.Primitives.Point(tileSize * p.x, image.Height - tileSize * p.y)
+                let location = SixLabors.Primitives.Point(tileSize * p.x, tileSize * (map.size.y - p.y - 1))
                 ctx.DrawImage(GraphicsOptions.Default, sprite, location) |> ignore
             image.Mutate(drawEntity)
 
