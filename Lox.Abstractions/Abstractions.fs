@@ -1,24 +1,29 @@
 namespace LoxLib
 
-open Newtonsoft.Json
 open SixLabors.ImageSharp
 open SixLabors.ImageSharp.PixelFormats
+open System
 
 type LoxCommand = {
     label: string
-    [<JsonIgnore>]
     action: unit -> unit
 }
 
 type LogElement =
-    | LogMessage of text: string
+    | LogString of text: string
     | LogMarkdown of text: string
-    | LogObject of label: string * o: obj
+    | LogObject of o: obj
     | LogCommandBar of commands: LoxCommand list
     | LogImage of image: Image<Rgba32>
 
+type LogMessage = {
+    elements: LogElement list
+    category: string
+    time: DateTimeOffset
+}
+
 type Logger = {
-    log: LogElement list -> unit
+    log: LogMessage -> unit
     setCommands: LoxCommand list -> unit
 }
 
@@ -30,7 +35,13 @@ module Lox =
         | None -> ()
         | Some logger -> f logger
 
-    let log elements = action (fun logger -> logger.log elements)
-    let print text = log [ LogMessage text ]
-    let printmd text = log [ LogMarkdown text ]
+    let log category elements = action (fun logger ->
+        logger.log {
+            elements = elements
+            category = category
+            time = DateTimeOffset.Now
+        })
+    
+    let print category text = log category [LogString text]
+    let printmd category text = log category [LogMarkdown text]
     let setCommands commands = action (fun logger -> logger.setCommands commands)

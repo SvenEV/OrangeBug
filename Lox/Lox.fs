@@ -1,5 +1,8 @@
 module LoxLib.LoxServer
 
+open System
+open System.Diagnostics
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
@@ -7,42 +10,55 @@ open Microsoft.AspNetCore.SignalR
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
-open System
-open System.Diagnostics
-open System.Threading.Tasks
-open CommonMark
-open Lox
 open Newtonsoft.Json
 open Serialization
+open System.Collections.Generic
 
-let mutable debugCommands : LoxCommand list = []
+let mutable globalCommands = []
+let messages = List<LogMessage>()
 
-type LogMessage = {
-    elements: LogElement list
-    category: string
-    time: string
-}
+let sendMessage (client: IClientProxy) id message =
+    let dto = Dto.mapMessage message id
+    client.SendAsync("ReceiveLogMessage", dto) |> ignore
+
+let sendGlobalCommands (client: IClientProxy) commands =
+    let dtos = commands |> List.map Dto.mapCommand
+    client.SendAsync("ReceiveGlobalCommands", dtos) |> ignore
 
 type LogHub() =
     inherit Hub()
+
     override hub.OnConnectedAsync() =
-        hub.Clients.Caller.SendAsync("ReceiveCommands", debugCommands)
-    member __.InvokeCommand(label: string) =
-        match debugCommands |> Seq.tryFind (fun cmd -> cmd.label = label) with
-        | None -> ()
-        | Some command -> command.action()
+        sendGlobalCommands (hub.Clients.Caller) globalCommands
+        messages |> Seq.iteri (sendMessage (hub.Clients.Caller))
+        Task.CompletedTask
 
-let log (hub: IHubContext<LogHub>) (elements: LogElement list) =
-    let message = {
-        elements = elements
-        category = "General"
-        time = DateTimeOffset.Now.ToString("yyyy-MM-dd hh:mm:ss")
-    }
-    hub.Clients.All.SendAsync("ReceiveLog", message) |> ignore
+    member __.InvokeCommand(messageId: int, label: string) =
+        match messageId with
+        | -1 ->
+            // Find matching global command and invoke it
+            match globalCommands |> Seq.tryFind (fun cmd -> cmd.label = label) with
+            | Some command -> command.action()
+            | None -> ()
+        | id ->
+            // Find message, find matching command and invoke it
+            if id < messages.Count then
+                let msg = messages.[id]
+                let command =
+                    msg.elements
+                    |> Seq.collect (function LogCommandBar cmds -> cmds | _ -> [])
+                    |> Seq.tryFind (fun cmd -> cmd.label = label)
+                match command with
+                | Some cmd -> cmd.action()
+                | None -> ()
 
-let setCommands (hub: IHubContext<LogHub>) (commands: LoxCommand list) =
-    debugCommands <- commands
-    hub.Clients.All.SendAsync("ReceiveCommands", commands) |> ignore
+let log (hub: IHubContext<LogHub>) message =
+    messages.Add message
+    sendMessage (hub.Clients.All) (messages.Count - 1) message
+
+let setGlobalCommands (hub: IHubContext<LogHub>) commands =
+    globalCommands <- commands
+    sendGlobalCommands (hub.Clients.All) commands
 
 type Startup() =
     let serveFile (context: HttpContext) (next: Func<Task>) =
@@ -58,7 +74,6 @@ type Startup() =
     member __.ConfigureServices(services: IServiceCollection) =
         services.AddSignalR()
             .AddJsonProtocol(fun options ->
-                options.PayloadSerializerSettings.Converters.Add(ImageConverter())
                 options.PayloadSerializerSettings.Converters.Add(MapConverter())
                 options.PayloadSerializerSettings.Converters.Add(DiscriminatedUnionConverter())) |> ignore
         ()
@@ -70,7 +85,7 @@ type Startup() =
 
         Lox.logger <- Some {
             log = log hub
-            setCommands = setCommands hub
+            setCommands = setGlobalCommands hub
         }
         ()
 

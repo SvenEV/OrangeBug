@@ -1,7 +1,7 @@
 ﻿namespace OrangeBug.Game
 
 open OrangeBug
-open System
+open LoxLib
 
 // Intents
 
@@ -59,17 +59,14 @@ type Intent =
 type ErrorTrace =
     {
         attemptedMoves: (Point * Point) list
-        log: string
+        log: LogElement list
     }
-    static member Empty = { attemptedMoves = []; log = "" }
-    static member Log msg = { attemptedMoves = []; log = msg }
+    static member Empty = { attemptedMoves = []; log = [] }
+    static member Log elements = { attemptedMoves = []; log = elements }
+    static member LogString s = { attemptedMoves = []; log = [LogString s] }
     static member Combine t1 t2 = {
         attemptedMoves = t1.attemptedMoves @ t2.attemptedMoves
-        log =
-            match t1.log, t2.log with
-            | "", s -> s
-            | s, "" -> s
-            | s1, s2 -> String.concat Environment.NewLine [ s1; s2 ]
+        log = t1.log @ t2.log
     }
 
 type IntentResult =
@@ -127,7 +124,7 @@ module Intent =
     let requireRecentEvent expected ctx =
         if ctx.recentEvents |> List.exists (fun ev -> ev.event = expected)
         then Accepted []
-        else Rejected (ErrorTrace.Log (sprintf "Expected but didn't find recent event: %O" expected))
+        else Rejected (ErrorTrace.Log [LogString "Expected but didn't find recent event:"; LogObject expected])
 
     let applyEvents context events =
         {

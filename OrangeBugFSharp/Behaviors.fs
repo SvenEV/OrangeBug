@@ -1,5 +1,7 @@
 ﻿namespace OrangeBug.Game
+
 open OrangeBug
+open LoxLib
 
 type TileBehavior = {
     // Should return an 'EntityAttachedEvent' to indicate success
@@ -26,7 +28,7 @@ module Behavior =
     // Infrastructure
     
     let private justAccept _ _ = Accepted []
-    let private justReject msg _ _ = Rejected (ErrorTrace.Log msg)
+    let private justReject msg _ _ = Rejected (ErrorTrace.LogString msg)
     let private zeroDependencies _ = []
 
 
@@ -119,7 +121,7 @@ module Behavior =
                     match entity with
                     | BalloonEntity balloon when balloon.color = pinTile.color -> return Accepted []
                     | PlayerEntity _ -> return Accepted []
-                    | _ -> return Rejected (ErrorTrace.Log (sprintf "Not allowed on PinTile: %O" entity))
+                    | _ -> return Rejected (ErrorTrace.Log [LogString "Not allowed on PinTile:"; LogObject entity])
                 }
                 return! validateEntity =&&=> PathTileBehavior.tryAttachEntity intent
             }
@@ -155,7 +157,7 @@ module Behavior =
             }
        
             getStaticDependencies = function
-                | GateTile gate -> [ AbsoluteMapDependency gate.triggerPosition ]
+                | GateTile gate -> [AbsoluteMapDependency gate.triggerPosition]
                 | _ -> []
     }
 
@@ -218,7 +220,7 @@ module Behavior =
                 // ensure entity can't move in from a wall side of the corner (but allow teleports)
                 let validateEntry _ =
                     match intent.move.mode, outDirection with
-                    | Push _, None -> Rejected (ErrorTrace.Log "Tried to enter CornerTile from a wrong side")
+                    | Push _, None -> Rejected (ErrorTrace.LogString "Tried to enter CornerTile from a wrong side")
                     | _ -> Accepted []
                 
                 // empty the target tile, suggesting a move around the corner
@@ -247,7 +249,7 @@ module Behavior =
                     let! corner = MapAccess.requireTile CornerTile intent.position
                     let isValidOutDir = CornerTile.isValidOutDirection corner.orientation outDirection
                     match intent.move.mode, isValidOutDir with
-                    | Push _, false -> return Rejected (ErrorTrace.Log "Tried to leave CornerTile via wrong side")
+                    | Push _, false -> return Rejected (ErrorTrace.LogString "Tried to leave CornerTile via wrong side")
                     | _ -> return Accepted []
                 }
                 
@@ -353,13 +355,13 @@ module Behavior =
         validateDetach = justAccept
         tryClearTile = fun intent context -> gameplay context {
             match intent.move.mode, intent.suggestedPushDirection with
-            | _, None -> return Rejected (ErrorTrace.Log "No push direction suggested - box can't just disappear")
-            | Teleport, _ -> return Rejected (ErrorTrace.Log "Box can't be pushed away through teleportation")
+            | _, None -> return Rejected (ErrorTrace.LogString "No push direction suggested - box can't just disappear")
+            | Teleport, _ -> return Rejected (ErrorTrace.LogString "Box can't be pushed away through teleportation")
             | Push force, Some dir ->
                 // For better code reuse, we do not specifically require a BoxEntity here
                 let! entity = MapAccess.tryGetEntity intent.entityId
                 match entity with
-                | None -> return Rejected (ErrorTrace.Log "Missing entity in BoxEntityBehavior.tryClearTile")
+                | None -> return Rejected (ErrorTrace.LogString "Missing entity in BoxEntityBehavior.tryClearTile")
                 | Some (position, _) ->
                     return! MoveEntityIntent {
                         entityId = intent.entityId
@@ -381,7 +383,7 @@ module Behavior =
             // piston entity can only be moved by piston tile (e.g. it can't be teleported)
             match intent.move.initiator with
             | SomePiston -> Accepted []
-            | _ -> Rejected (ErrorTrace.Log "Something tried to move PistonEntity")
+            | _ -> Rejected (ErrorTrace.LogString "Something tried to move PistonEntity")
 
         tryClearTile = justReject "PistonEntity is operated by PistonTile - it can't be pushed"
     }

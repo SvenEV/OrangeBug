@@ -87,11 +87,11 @@
         <div id="app">
             <header>
                 <h1 id="title">lox</h1>
-                <button v-for="cmd in commands" v-on:click="connection.invoke('InvokeCommand', cmd.label)">{{cmd.label}}</button>
+                <button v-for="cmd in globalCommands" v-on:click="connection.invoke('InvokeCommand', -1, cmd.label)">{{cmd.label}}</button>
             </header>
             <main>
                 <div id="logs">
-                    <log-message v-for="item in logs" v-bind="item"></log-message>
+                    <log-message v-for="item in logs" :key="item.id" v-bind="item" :connection="connection"></log-message>
                 </div>
                 
             </main>
@@ -99,16 +99,17 @@
 
         <script src="vue.js"></script>
         <script src="signalr.min.js"></script>
+        <script src="sampledata.js"></script>
         <script type="text/javascript">
             Vue.component('log-message', {
-                props: [ 'time', 'category', 'elements' ],
+                props: [ 'id', 'time', 'category', 'elements', 'connection' ],
                 template: `
                     <div class="log-message" style="padding: 4px 12px; display: grid; grid-template-columns: 142px 1fr min-content; grid-gap: 8px;">
                         <code style="font-size: small; color: gray; overflow: hidden; margin-top: 4px;">
                             <strong>{{time}}</strong>
                         </code>
                         <div style="display: grid; grid-auto-flow: row; grid-gap: 4px;">
-                            <log-element v-for="elem in elements" :element="elem"></log-element>
+                            <log-element v-for="elem in elements" :element="elem" :messageId="id" :connection="connection"></log-element>
                         </div>
                         <code>#{{category}}</code>
                     </div>
@@ -137,7 +138,7 @@
                             {{isPrimitive ? (text + ": " + object) : text}}
                         </span>
                         <div class="tree-node-children" v-if="!isPrimitive && expand">
-                            <tree-node v-for="(value, key) in object" :text="key.toString()" :object="value">
+                            <tree-node v-for="(value, key) in object" :key="key" :text="key.toString()" :object="value">
                             </tree-node>
                         </div>
                     </div>
@@ -145,20 +146,20 @@
             })
 
             Vue.component('log-element', {
-                props: [ 'element' ],
+                props: [ 'element', 'messageId', 'connection' ],
                 template: `
                     <div class="log-element">
-                        <span v-if="element.$type === 'LogMessage'">{{element.text}}</span>
-                        <span v-if="element.$type === 'LogMarkdown'" v-html="element.text"></span>
-                        <div v-if="element.$type === 'LogCommandBar'" style="display: grid; grid-auto-flow: column; grid-gap: 8px; grid-auto-columns: min-content;">
-                            <button v-for="cmd in element.commands">{{cmd.label}}</button>
+                        <span v-if="element.$type === 'LogStringDto'">{{element.text}}</span>
+                        <span v-if="element.$type === 'LogMarkdownDto'" v-html="element.html"></span>
+                        <div v-if="element.$type === 'LogCommandBarDto'" style="display: grid; grid-auto-flow: column; grid-gap: 8px; grid-auto-columns: min-content;">
+                            <button v-for="cmd in element.commands" :key="cmd.label" v-on:click="connection.invoke('InvokeCommand', messageId, cmd.label)">{{cmd.label}}</button>
                         </div>
-                        <tree-node v-if="element.$type === 'LogObject'"
+                        <tree-node v-if="element.$type === 'LogObjectDto'"
                             :isExpanded="true"
                             :text="element.label"    
-                            :object="element.o">
+                            :object="JSON.parse(element.json)">
                         </tree-node>
-                        <img v-if="element.$type === 'LogImage'" :src="element.image" />
+                        <img v-if="element.$type === 'LogImageDto'" :src="element.data" />
                     </div>
                 `
             })
@@ -168,95 +169,32 @@
                 data: {
                     connection: null,
                     logs: [],
-                    commands: []
+                    globalCommands: []
                 },
                 created: function () {
                     this.connection = new signalR.HubConnectionBuilder()
                         .withUrl("/lox")
                         .build();
                     
-                    this.connection.on("ReceiveLog", data => {
+                    this.connection.on("ReceiveLogMessage", data => {
                         Object.freeze(data);
                         var main = document.getElementsByTagName("main")[0];
                         var isAtBottom = Math.abs(main.scrollHeight - main.scrollTop - main.clientHeight) < 100
                         app.logs.push(data);
                         if (isAtBottom) {
-                            var logElements = document.getElementsByClassName("log-message");
-                            logElements[logElements.length - 1].scrollIntoView();
+                            var logMessage = document.getElementsByClassName("log-message");
+                            logMessage[logMessage.length - 1].scrollIntoView();
                         }
                     });
         
-                    this.connection.on("ReceiveCommands", data => {
-                        app.commands = data;
+                    this.connection.on("ReceiveGlobalCommands", data => {
+                        app.globalCommands = data;
                     })
                     
                     this.connection.start()
-                        .then(() => {
-                            app.logs = []
-                            app.commands = []
-                        })
                         .catch(() => {
-                            app.logs = [
-                                {
-                                    time: "2018-08-23 23:43:00",
-                                    category: "General",
-                                    elements: [
-                                        {
-                                            $type: "LogMarkdown",
-                                            text: "Hello World!"
-                                        },
-                                        {
-                                            $type: "LogCommandBar",
-                                            commands: [
-                                                { label: "Pause" },
-                                                { label: "Resume" },
-                                                { label: "Stop" }
-                                            ]
-                                        },
-                                        {
-                                            $type: "LogObject",
-                                            label: "a sample object",
-                                            o: {
-                                                name: {
-                                                    first: "Sven",
-                                                    last: "V"
-                                                },
-                                                age: 23,
-                                                addresses: [
-                                                    {
-                                                        street: "Main street",
-                                                        number: 99,
-                                                        city: {
-                                                            name: "Somecity",
-                                                            zip: 12345
-                                                        }
-                                                    },
-                                                    {
-                                                        street: "Secondary street",
-                                                        city: "Somecity"
-                                                    }
-                                                ],
-                                                emptyObj: {},
-                                                emptyArr: []
-                                            }
-                                        }
-                                    ]
-                                },
-                                {
-                                    time: "2018-08-23 23:43:51",
-                                    category: "General",
-                                    elements: [
-                                        {
-                                            $type: "LogMessage",
-                                            text: "Hello World!"
-                                        }
-                                    ]
-                                }
-                            ];
-                            app.commands = [
-                                { label: "Go" },
-                                { label: "Quit" }
-                            ];
+                            app.logs = sampleLogMessages;
+                            app.globalCommands = sampleGlobalCommands
                         });
                 }
             })

@@ -26,9 +26,10 @@ type Game() as g =
             {
                 label = "Snapshot"
                 action = fun () ->
-                    Lox.log [
+                    Lox.log "Snapshot" [
+                        LogMarkdown ("**Simulation at " + session.Value.simulation.time.value.ToString() + "**")
                         LogImage (Rendering.mapAsImage session.Value.simulation.map)
-                        LogObject ("Simulation at " + session.Value.simulation.time.value.ToString(), session.Value.simulation)
+                        LogObject session.Value.simulation
                     ]
             }
         ]
