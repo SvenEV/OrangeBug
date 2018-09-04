@@ -179,11 +179,13 @@
                     this.connection.on("ReceiveLogMessage", data => {
                         Object.freeze(data);
                         var main = document.getElementsByTagName("main")[0];
-                        var isAtBottom = Math.abs(main.scrollHeight - main.scrollTop - main.clientHeight) < 100
+                        var isAtBottom = Math.abs(main.scrollHeight - main.scrollTop - main.clientHeight) < 10
                         app.logs.push(data);
                         if (isAtBottom) {
-                            var logMessage = document.getElementsByClassName("log-message");
-                            logMessage[logMessage.length - 1].scrollIntoView();
+                            Vue.nextTick(() => {
+                                var logMessage = document.getElementsByClassName("log-message");
+                                logMessage[logMessage.length - 1].scrollIntoView();
+                            });
                         }
                     });
         
