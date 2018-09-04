@@ -3,7 +3,6 @@ namespace OrangeBug.DesktopClient
 open Microsoft.Xna.Framework
 open OrangeBug
 open System
-open System
 
 [<AutoOpen>]
 module Mathf =

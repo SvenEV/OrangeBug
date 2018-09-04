@@ -33,6 +33,12 @@ type Game() as g =
                     ]
             }
         ]
+        Lox.log "Gameplay" [ LogCommandBar [
+            { label = "Left"; action = fun () -> GameSession.requestMove session.Value West }
+            { label = "Up"; action = fun () -> GameSession.requestMove session.Value North }
+            { label = "Down"; action = fun () -> GameSession.requestMove session.Value South }
+            { label = "Right"; action = fun () -> GameSession.requestMove session.Value East }
+        ]]
         base.Initialize()
 
     override g.LoadContent() = ()

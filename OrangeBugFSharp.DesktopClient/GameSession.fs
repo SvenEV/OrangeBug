@@ -72,19 +72,19 @@ module GameSession =
         let syncGameTime, syncSimTime = session.lastTimeSync
         float32 syncSimTime.value + (float32 <| gameTime.TotalGameTime.TotalSeconds - syncGameTime.TotalSeconds) / session.tickTargetTime
     
+    let requestMove session dir =
+        let sim = session.simulation
+        let intent = MovePlayerIntent { name = "Player"; direction = dir }
+        session.simulation <- {
+            sim with
+                scheduledIntents = sim.scheduledIntents @ [ { intent = intent; time = sim.time + (SimTimeSpan 1) } ]
+        }
+    
     let update session getSprite aspectRatioScreen gameTime =
-        let requestMove dir =
-            let sim = session.simulation
-            let intent = MovePlayerIntent { name = "Player"; direction = dir }
-            session.simulation <- {
-                sim with
-                    scheduledIntents = sim.scheduledIntents @ [ { intent = intent; time = sim.time + (SimTimeSpan 1) } ]
-            }
-        
-        if Keyboard.GetState().IsKeyDown(Keys.Right) then requestMove East
-        if Keyboard.GetState().IsKeyDown(Keys.Left) then requestMove West
-        if Keyboard.GetState().IsKeyDown(Keys.Up) then requestMove North
-        if Keyboard.GetState().IsKeyDown(Keys.Down) then requestMove South
+        if Keyboard.GetState().IsKeyDown(Keys.Right) then requestMove session East
+        if Keyboard.GetState().IsKeyDown(Keys.Left) then requestMove session West
+        if Keyboard.GetState().IsKeyDown(Keys.Up) then requestMove session North
+        if Keyboard.GetState().IsKeyDown(Keys.Down) then requestMove session South
         
         // advance simulation according to passed time
         let simTime = gameToSimTime session gameTime
