@@ -26,3 +26,4 @@ module SampleMaps =
         |> GameMap.updateTile (Point.create 12 4) (CornerTile { orientation = South })
         //|> GameMap.updateTile (Point.create 12 4) (TeleporterTile { targetPosition = Point.create 2 6; isActive = true })
         |> GameMap.spawnEntity (Point.create 12 4) EntityId.create (BoxEntity ())
+        |> GameMap.spawnEntity (Point.create 1 1) EntityId.create (PlayerEntity { name = "Player"; orientation = East })

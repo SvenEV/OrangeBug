@@ -26,12 +26,19 @@ type Game() as g =
             {
                 label = "Snapshot"
                 action = fun () ->
-                    Lox.log [
+                    Lox.log "Snapshot" [
+                        LogMarkdown ("**Simulation at " + session.Value.simulation.time.value.ToString() + "**")
                         LogImage (Rendering.mapAsImage session.Value.simulation.map)
-                        LogObject ("Simulation at " + session.Value.simulation.time.value.ToString(), session.Value.simulation)
+                        LogObject session.Value.simulation
                     ]
             }
         ]
+        Lox.log "Gameplay" [ LogCommandBar [
+            { label = "Left"; action = fun () -> GameSession.requestMove session.Value West }
+            { label = "Up"; action = fun () -> GameSession.requestMove session.Value North }
+            { label = "Down"; action = fun () -> GameSession.requestMove session.Value South }
+            { label = "Right"; action = fun () -> GameSession.requestMove session.Value East }
+        ]]
         base.Initialize()
 
     override g.LoadContent() = ()

@@ -1,8 +1,10 @@
 ﻿namespace OrangeBug.Game
 
+open OrangeBug
+open OrangeBug.Game.Intent
+open LoxLib
+
 module Gameplay =
-    open OrangeBug
-    open OrangeBug.Game.Intent
 
     let EntityMoveDuration = SimTimeSpan 2
 
@@ -63,7 +65,7 @@ module Gameplay =
 
             let validateForce _ =
                 match intent.mode with
-                | Push 0 -> Rejected (ErrorTrace.Log "No force remaining to push entity")
+                | Push 0 -> Rejected (ErrorTrace.LogString "No force remaining to push entity")
                 | _ -> Accepted []
 
             let detachFromSource =
@@ -101,7 +103,7 @@ module Gameplay =
 
             let traceError = trace {
                 attemptedMoves = [ oldPosition, intent.newPosition ]
-                log = sprintf "Failed to move entity from '%O' to '%O'" oldPosition intent.newPosition
+                log = [LogString (sprintf "Failed to move entity from '%O' to '%O'" oldPosition intent.newPosition)]
             }
 
             // If 'all' succeeds, '=||=>' will invoke 'traceError' but discard its result and return 'Accepted'

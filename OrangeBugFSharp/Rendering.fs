@@ -1,14 +1,76 @@
 ﻿namespace OrangeBug
 
-open SixLabors.Primitives;
+open System
 open SixLabors.ImageSharp
 open SixLabors.ImageSharp.PixelFormats
 open SixLabors.ImageSharp.Processing;
+open OrangeBug.Game
 
 module Rendering =
-    open System
-    open OrangeBug.Game
+    [<RequireQualifiedAccess>]
+    module ImageCache =
+        let spriteSize = 16
+        let mutable images = Map.empty
 
+        let load name =
+            let image = Image.Load<Rgba32>(@"Assets\Sprites\" + name + ".png")
+            image.Mutate(fun ctx -> ctx.Resize(SixLabors.Primitives.Size(spriteSize, spriteSize)) |> ignore)
+            image
+        
+        let get name =
+            match images.TryFind name with
+            | Some image -> image
+            | None ->
+                let image = load name
+                images <- images |> Map.add name image
+                image
+
+    let tileSpriteKey =
+        function
+        | PathTile -> "Path"
+        | WallTile -> "Wall"
+        | LockedTile -> "" // shouldn't happen
+        | InkTile state -> "Ink" + (match state.color with Red -> "Red" | Green -> "Green" | Blue -> "Blue")
+        | PinTile state -> "Pin" + (match state.color with Red -> "Red" | Green -> "Green" | Blue -> "Blue")
+        | ButtonTile _ -> "Button"
+        | GateTile state -> if state.isOpen then "GateOpened" else "GateClosed"
+        | TeleporterTile _ -> "Teleporter"
+        | CornerTile _ -> "Corner"
+        | PistonTile _ -> "Piston"
+
+    let entitySpriteKey =
+        function
+        | PlayerEntity _ -> "Player"
+        | BoxEntity _ -> "Box"
+        | BalloonEntity state -> "Balloon" + (match state.color with Red -> "Red" | Green -> "Green" | Blue -> "Blue")
+        | PistonEntity _ -> "PistonEntity"
+
+    let mapAsImage (map: GameMapState) =
+        let tileSize = ImageCache.spriteSize
+        let image = new Image<Rgba32>(map.size.x * tileSize, map.size.y * tileSize)
+        // TODO: Orientation of tiles and entities
+        
+        for y in [0 .. map.size.y - 1] do
+            for x in [0 .. map.size.x - 1] do
+                let p = Point.create x y
+                let drawTile (ctx: IImageProcessingContext<Rgba32>) =
+                    let sprite = (map.tiles.Find p).tile |> tileSpriteKey |> ImageCache.get
+                    let location = SixLabors.Primitives.Point(tileSize * x, tileSize * (map.size.y - y - 1))
+                    ctx.DrawImage(GraphicsOptions.Default, sprite, location) |> ignore
+                image.Mutate(drawTile)
+
+        for e in map.entities do
+            let drawEntity (ctx: IImageProcessingContext<Rgba32>) =
+                let p = e.Value.position
+                let sprite = e.Value.entity |> entitySpriteKey |> ImageCache.get
+                let location = SixLabors.Primitives.Point(tileSize * p.x, tileSize * (map.size.y - p.y - 1))
+                ctx.DrawImage(GraphicsOptions.Default, sprite, location) |> ignore
+            image.Mutate(drawEntity)
+
+        image
+
+
+module TextRendering =
     let tileAsString tile =
         match tile with
         | PathTile -> [| "     "; "     "; "     " |]
@@ -55,15 +117,3 @@ module Rendering =
             |> String.concat "\n\n"
         
         rows
-
-    let mapAsImage (map: GameMapState) =
-        // TODO
-        let tileSize = 16
-        let image = new Image<Rgba32>(map.size.x * tileSize, map.size.y * tileSize)
-        let wallSprite = Image.Load<Rgba32>(@"Assets\Sprites\Wall.png")
-        for y in [0 .. map.size.y - 1] do
-            for x in [0 .. map.size.x - 1] do
-                let drawWall (ctx: IImageProcessingContext<Rgba32>) =
-                    ctx.DrawImage(GraphicsOptions.Default, wallSprite, new Point(x * tileSize, y * tileSize)) |> ignore
-                image.Mutate(drawWall)
-        image

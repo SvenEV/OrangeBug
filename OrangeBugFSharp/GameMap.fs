@@ -171,26 +171,16 @@ module GameMap =
         dependencies = Graph.empty
     }
 
-    let create width height =
-        let playerId = EntityId.create
-        let playerPos = Point.create 1 1
-        {
-            size = Point.create width height
-            players = Map.ofList [ "Player", playerId ]
-            
-            entities = Map.ofList
-                [
-                    playerId, EntityEntry.Create playerPos (PlayerEntity { name = "Player"; orientation = East })
-                ]
-            
-            tiles = Grid.init (Point.create width height) (fun p ->
-                match p with
-                | p when p = playerPos -> TileEntry.WithEntity playerId PathTile
-                | Point (0, _) -> TileEntry.WithoutEntity WallTile
-                | Point (_, 0) -> TileEntry.WithoutEntity WallTile
-                | Point (x, _) when x = width - 1 -> TileEntry.WithoutEntity WallTile
-                | Point (_, y) when y = height - 1 -> TileEntry.WithoutEntity WallTile
-                | _ -> TileEntry.WithoutEntity PathTile)
-
-            dependencies = Graph.empty
-        }
+    let create width height = {
+        size = Point.create width height
+        players = Map.empty    
+        dependencies = Graph.empty
+        entities = Map.empty
+        tiles = Grid.init (Point.create width height) (fun p ->
+            match p with
+            | Point (0, _) -> TileEntry.WithoutEntity WallTile
+            | Point (_, 0) -> TileEntry.WithoutEntity WallTile
+            | Point (x, _) when x = width - 1 -> TileEntry.WithoutEntity WallTile
+            | Point (_, y) when y = height - 1 -> TileEntry.WithoutEntity WallTile
+            | _ -> TileEntry.WithoutEntity PathTile)
+    }

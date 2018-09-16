@@ -15,7 +15,7 @@ module Program =
         while true do
             Console.Clear ()
             Console.WriteLine (sprintf "Time: %i - %i events scheduled (up to time %i)" simulation.time.value simulation.scheduledEvents.Length (if simulation.scheduledEvents.Length = 0 then -1 else (Seq.maxBy (fun (ev: ScheduledEvent) -> ev.time.value) simulation.scheduledEvents).time.value))
-            Console.WriteLine (Rendering.mapAsString simulation.map)
+            Console.WriteLine (TextRendering.mapAsString simulation.map)
             //Console.WriteLine (simulation.map.tiles |> Grid.asCharBitmap |> CharBitmap.toString)
             let key = Console.ReadKey()
 

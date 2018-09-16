@@ -10,6 +10,7 @@
     <Compile Include="Extensions.fs" />
     <Compile Include="SpriteBatch3D.fs" />
     <Compile Include="Tree.fs" />
+    <Compile Include="Animation.fs" />
     <Compile Include="SceneObjects.fs" />
     <Compile Include="GameSession.fs" />
     <Compile Include="Game.fs" />
