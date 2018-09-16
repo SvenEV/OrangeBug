@@ -17,9 +17,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\OrangeBugFSharp\OrangeBugFSharp.fsproj" />
-    <ProjectReference Include="..\Lox\Lox.fsproj" />
     <PackageReference Update="FSharp.Core" Version="4.5.2" />
-    <PackageReference Include="MonoGame.Content.Builder" Version="3.7.0.4" />
-    <PackageReference Include="MonoGame.Framework.DesktopGL.Core" Version="3.7.0.7" />
+    <PackageReference Include="Lox" Version="0.1.0-CI-20180916-131724" />
+    <PackageReference Include="MonoGame.Content.Builder" Version="3.7.0.9" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL.Core" Version="3.7.0.10" />
   </ItemGroup>
 </Project>
