@@ -43,7 +43,7 @@ module SpriteRendererComponent =
         let stateToResult commands = commands
         let mergeCommands lists = List.concat lists
         
-        scene |> SceneGraph.fold drawNode stateToResult mergeCommands []
+        scene.tree |> Tree.fold drawNode stateToResult mergeCommands []
 
 
 type TileComponent = {
@@ -166,3 +166,28 @@ module CameraComponent =
                 camera.projectionMatrix <- Matrix.CreateOrthographic(camera.size * aspectRatio, camera.size, -1000.0f, 1000.0f);
         
         scene |> SceneGraph.iterComponents updateNode ()
+
+
+type UIComponent = {
+    mutable render: VisualLayer.State -> VisualLayer.State
+}
+
+module UIComponent =
+    let drawUI scene graphicsDevice =
+        let drawVisualTree = function
+            | Leave(state, _) -> state
+            | Enter(state, node) ->
+                match node |> SceneNode.tryGetComponent<UIComponent> with
+                | Some ui -> ui.render state
+                | _ -> state
+        
+        let state = VisualLayer.beginFrame graphicsDevice
+        scene.tree
+        |> Tree.foldEvents drawVisualTree state
+        |> VisualLayer.endFrame
+
+
+type LayoutComponent = {
+    //layout: LayoutPhase -> LayoutResult
+    bounds: Vector2 * Vector2
+}

@@ -40,7 +40,7 @@ module GameSession =
             updateTileComponent e.inkPosition (fun c -> c.tile <- PathTile)
         | _ -> ()
 
-    let buildScene map =
+    let buildScene map getSprite =
         let cameraPos = Vector3((map.size.x / 2 |> float32) - 0.5f, (map.size.y / 2 |> float32) - 0.5f, 10.0f)
         let camera = CameraComponent.createNode "MainCamera" 10.0f cameraPos
 
@@ -53,17 +53,62 @@ module GameSession =
             map.entities
             |> Seq.map (fun kvp -> EntityComponent.createNode kvp.Key kvp.Value.position kvp.Value.entity)
 
+        // DEBUG: VisualLayer experiments
+        let sampleUI = {
+            id = "SampleUI"
+            components = [
+                {
+                    render =
+                        VisualLayer.pushVisual
+                            { Visual.empty with
+                                size = Vector2(100.0f, 100.0f)
+                                offset = Vector2(20.0f, 20.0f)
+                                brush = SolidColorBrush(Color.YellowGreen)
+                            }
+                            >> VisualLayer.pushVisual
+                                { Visual.empty with
+                                    rotation = Deg 45.0f
+                                    center = Vector2(0.5f, 0.5f)
+                                    offset = Vector2(20.0f, 0.0f)
+                                    size = Vector2(40.0f, 40.0f)
+                                    brush = Texture((getSprite "Sprites/InkRed").texture)
+                                }
+                                >> VisualLayer.pushVisual
+                                    { Visual.empty with
+                                        rotation = Deg 45.0f
+                                        center = Vector2(0.5f, 0.5f)
+                                        // offset = Vector2(20.0f, 0.0f)
+                                        size = Vector2(20.0f, 20.0f)
+                                        brush = Texture((getSprite "Sprites/Box").texture)
+                                    }
+                                >> VisualLayer.pop
+                            >> VisualLayer.pop
+                            >> VisualLayer.pushVisual
+                                { Visual.empty with
+                                    rotation = Deg 45.0f
+                                    center = Vector2(0.5f, 0.5f)
+                                    offset = Vector2(80.0f, 0.0f)
+                                    size = Vector2(40.0f, 40.0f)
+                                    brush = Texture((getSprite "Sprites/InkBlue").texture)
+                                }
+                            >> VisualLayer.pop
+                        >> VisualLayer.pop
+                }
+            ]
+        }
+
         Seq.singleton camera
         |> Seq.append tiles
         |> Seq.append entities
+        |> Seq.append [sampleUI]
         |> Seq.fold (fun g n -> SceneGraph.addOrReplace SceneGraph.rootId n g) SceneGraph.empty
 
-    let create id =
+    let create id getSprite =
         let simulation = Simulation.create SampleMaps.sampleMap1
         {
             id = id
             simulation = simulation
-            scene = buildScene simulation.map
+            scene = buildScene simulation.map getSprite
             lastTimeSync = TimeSpan.Zero, SimTime 0
             tickTargetTime = float32 Simulation.TickTargetTime.TotalSeconds
         }
@@ -126,3 +171,5 @@ module GameSession =
         | Some cam ->
             SpriteRendererComponent.draw session.scene
             |> SpriteBatch3D.draw graphicsDevice cam.viewMatrix cam.projectionMatrix
+
+            UIComponent.drawUI session.scene graphicsDevice

@@ -20,7 +20,7 @@ type Game() as g =
         { texture = texture; size = Vector2.One; anchorPoint = 100.0f * Vector2.One }
 
     override g.Initialize() =
-        session <- Some (GameSession.create "mainSession")
+        session <- Some (GameSession.create "mainSession" getSprite)
         Lox.setCommands [
             { label = "Quit"; action = fun () -> System.Environment.Exit(0) }
             {
