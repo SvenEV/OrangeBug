@@ -22,6 +22,10 @@ type Visual = {
     rotation: Angle
     scale: Vector2
     brush: VisualBrush
+    
+    // TODO: Support for clipping children to bounds of their parent.
+    // This is needed for overflowing visuals, think of scrollable list views.
+    // Looks like we can't use ScissorRectangle since we want to support arbitrary transformation.
     clipToBounds: bool
 }
 
@@ -60,7 +64,7 @@ module VisualLayer =
             VertexPositionNormalTexture(Vector3.Zero, Vector3.Backward, Vector2.Zero) // bottom left
             VertexPositionNormalTexture(Vector3.UnitY * size.Y, Vector3.Backward, Vector2.UnitY) // top left
             VertexPositionNormalTexture(Vector3.UnitX * size.X, Vector3.Backward, Vector2.UnitX) // bottom right
-            VertexPositionNormalTexture(Vector3.One * Vector3(size.X, size.Y, 0.0f), Vector3.Backward, Vector2.One) // top right
+            VertexPositionNormalTexture(Vector3(size.X, size.Y, 0.0f), Vector3.Backward, Vector2.One) // top right
         |]
 
     type State = {
@@ -76,7 +80,7 @@ module VisualLayer =
 
         let effect = new BasicEffect(graphicsDevice, View = viewMatrix, Projection = projectionMatrix)
         graphicsDevice.BlendState <- BlendState.AlphaBlend
-        graphicsDevice.RasterizerState <- new RasterizerState(ScissorTestEnable = true, CullMode = CullMode.CullClockwiseFace)
+        graphicsDevice.RasterizerState <- new RasterizerState(CullMode = CullMode.CullClockwiseFace)
 
         {
             graphicsDevice = graphicsDevice
@@ -101,12 +105,6 @@ module VisualLayer =
         let worldMatrix = computeLocalMatrix visual * parentWorldMatrix
         let viewportHeight = float32 state.graphicsDevice.Viewport.Height
         effect.World <- worldMatrix * (flipY viewportHeight)
-
-        // Apply clipping
-        state.graphicsDevice.ScissorRectangle <-
-            if visual.clipToBounds
-            then new Rectangle(0, 0, 80, 2000)
-            else state.graphicsDevice.Viewport.Bounds
 
         // Apply brush
         match visual.brush with

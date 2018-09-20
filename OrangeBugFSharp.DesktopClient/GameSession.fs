@@ -4,6 +4,7 @@ open System
 open LoxLib
 open OrangeBug
 open OrangeBug.Game
+open OrangeBug.DesktopClient.LibUI
 open Microsoft.Xna.Framework
 open Microsoft.Xna.Framework.Input
 
@@ -53,48 +54,10 @@ module GameSession =
             map.entities
             |> Seq.map (fun kvp -> EntityComponent.createNode kvp.Key kvp.Value.position kvp.Value.entity)
 
-        // DEBUG: VisualLayer experiments
+        // DEBUG: VisualLayer/UI experiments
         let sampleUI = {
             id = "SampleUI"
-            components = [
-                {
-                    render =
-                        VisualLayer.pushVisual
-                            { Visual.empty with
-                                size = Vector2(100.0f, 100.0f)
-                                offset = Vector2(20.0f, 20.0f)
-                                brush = SolidColorBrush(Color.YellowGreen)
-                            }
-                            >> VisualLayer.pushVisual
-                                { Visual.empty with
-                                    rotation = Deg 45.0f
-                                    center = Vector2(0.5f, 0.5f)
-                                    offset = Vector2(20.0f, 0.0f)
-                                    size = Vector2(40.0f, 40.0f)
-                                    brush = Texture((getSprite "Sprites/InkRed").texture)
-                                }
-                                >> VisualLayer.pushVisual
-                                    { Visual.empty with
-                                        rotation = Deg 45.0f
-                                        center = Vector2(0.5f, 0.5f)
-                                        // offset = Vector2(20.0f, 0.0f)
-                                        size = Vector2(20.0f, 20.0f)
-                                        brush = Texture((getSprite "Sprites/Box").texture)
-                                    }
-                                >> VisualLayer.pop
-                            >> VisualLayer.pop
-                            >> VisualLayer.pushVisual
-                                { Visual.empty with
-                                    rotation = Deg 45.0f
-                                    center = Vector2(0.5f, 0.5f)
-                                    offset = Vector2(80.0f, 0.0f)
-                                    size = Vector2(40.0f, 40.0f)
-                                    brush = Texture((getSprite "Sprites/InkBlue").texture)
-                                }
-                            >> VisualLayer.pop
-                        >> VisualLayer.pop
-                }
-            ]
+            components = [ { construct = UISample.sample } ]
         }
 
         Seq.singleton camera

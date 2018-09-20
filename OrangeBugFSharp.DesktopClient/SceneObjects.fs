@@ -1,8 +1,12 @@
 namespace OrangeBug.DesktopClient
 
 open Microsoft.Xna.Framework
+open Microsoft.Xna.Framework.Graphics
+open Layman
 open OrangeBug
 open OrangeBug.Game
+open OrangeBug.DesktopClient
+open OrangeBug.DesktopClient.LibUI
 
 type TransformComponent = {
     mutable localMatrix: Matrix
@@ -88,7 +92,7 @@ type EntityComponent = {
 }
 
 module EntityComponent =
-    let nodeId id = sprintf "Entity(%i)" id.id
+    let nodeId (id: EntityId) = sprintf "Entity(%i)" id.id
 
     let createNode id (p: Point) entity =
         {
@@ -169,25 +173,43 @@ module CameraComponent =
 
 
 type UIComponent = {
-    mutable render: VisualLayer.State -> VisualLayer.State
+    mutable construct: unit -> ElementNode
 }
 
 module UIComponent =
-    let drawUI scene graphicsDevice =
+    let drawUI scene (graphicsDevice: GraphicsDevice) =
+        // DEBUG: Construct UI tree each frame
+        let mutable uis = Map.empty
+        let constructUIs _ (node: SceneNode) ui =
+            let tree = UI.update None (ui.construct())
+            uis <- uis |> Map.add node.id tree
+
+        scene |> SceneGraph.iterComponents constructUIs ()
+
+        // DEBUG: Perform a full re-layout each frame
+        let layoutUIs (node: SceneNode) _ =
+            match uis.TryFind node.id with
+            | Some element ->
+                let layout = element.behavior.layout element.props element.state
+                let space = layvec2 (float graphicsDevice.Viewport.Width) (float graphicsDevice.Viewport.Height)
+                let context = { parentCache = None; traceWriter = ignore }
+                let _, measureData = Layout.measure space context layout
+                let bounds = Layout.arrange (rect (layvec2 0.0 0.0) space) measureData context layout
+                ()
+            | _ -> ()
+
+        scene.tree |> Tree.iter layoutUIs ()
+
+        // Render UI
+        let context = VisualLayer.beginFrame graphicsDevice
+
         let drawVisualTree = function
-            | Leave(state, _) -> state
-            | Enter(state, node) ->
-                match node |> SceneNode.tryGetComponent<UIComponent> with
-                | Some ui -> ui.render state
-                | _ -> state
+            | Leave(context, _) -> context
+            | Enter(context, node) ->
+                match uis.TryFind node.id with
+                | Some element -> element.behavior.render element.props element.state context 
+                | _ -> context
         
-        let state = VisualLayer.beginFrame graphicsDevice
         scene.tree
-        |> Tree.foldEvents drawVisualTree state
+        |> Tree.foldEvents drawVisualTree context
         |> VisualLayer.endFrame
-
-
-type LayoutComponent = {
-    //layout: LayoutPhase -> LayoutResult
-    bounds: Vector2 * Vector2
-}
