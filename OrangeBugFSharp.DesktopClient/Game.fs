@@ -49,8 +49,7 @@ type Game() as g =
         match session with
         | None -> ()
         | Some session ->
-            let aspectRatio = g.GraphicsDevice.Viewport.AspectRatio
-            GameSession.update session getSprite aspectRatio gameTime
+            GameSession.update session getSprite (g.GraphicsDevice.Viewport) gameTime
             g.Window.Title <- sprintf "Time: %i, FPS: %i, slow: %b" session.simulation.time.value (int <| 1.0 / gameTime.ElapsedGameTime.TotalSeconds) gameTime.IsRunningSlowly
         
     override g.Draw gameTime =

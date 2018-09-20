@@ -7,6 +7,7 @@ open OrangeBug.Game
 open OrangeBug.DesktopClient.LibUI
 open Microsoft.Xna.Framework
 open Microsoft.Xna.Framework.Input
+open Microsoft.Xna.Framework.Graphics
 
 type GameSession = {
     id: string
@@ -57,7 +58,9 @@ module GameSession =
         // DEBUG: VisualLayer/UI experiments
         let sampleUI = {
             id = "SampleUI"
-            components = [ { construct = UISample.sample } ]
+            components = [
+                { root = None; construct = UISample.sample }
+            ]
         }
 
         Seq.singleton camera
@@ -88,7 +91,7 @@ module GameSession =
                 scheduledIntents = sim.scheduledIntents @ [ { intent = intent; time = sim.time + (SimTimeSpan 1) } ]
         }
     
-    let update session getSprite aspectRatioScreen gameTime =
+    let update session getSprite (viewport: Viewport) gameTime =
         if Keyboard.GetState().IsKeyDown(Keys.Right) then requestMove session East
         if Keyboard.GetState().IsKeyDown(Keys.Left) then requestMove session West
         if Keyboard.GetState().IsKeyDown(Keys.Up) then requestMove session North
@@ -112,6 +115,7 @@ module GameSession =
         events |> Seq.iter (handleEvent session)
 
         // update camera size so map fits onto screen
+        let aspectRatioScreen = viewport.AspectRatio
         match session.scene |> SceneGraph.tryGetComponent<CameraComponent> "MainCamera" with
         | None -> ()
         | Some cam ->
@@ -127,6 +131,7 @@ module GameSession =
         CameraComponent.updateCameraMatrices session.scene aspectRatioScreen
         TileComponent.update session.scene getSprite
         EntityComponent.update session.scene getSprite simTime
+        UIComponent.updateUIs session.scene viewport
 
     let draw session graphicsDevice =
         match session.scene |> SceneGraph.tryGetComponent<CameraComponent> "MainCamera" with
@@ -134,5 +139,5 @@ module GameSession =
         | Some cam ->
             SpriteRendererComponent.draw session.scene
             |> SpriteBatch3D.draw graphicsDevice cam.viewMatrix cam.projectionMatrix
-
-            UIComponent.drawUI session.scene graphicsDevice
+            
+            UIComponent.renderUIs session.scene graphicsDevice

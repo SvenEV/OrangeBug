@@ -6,57 +6,78 @@ open Layman
 open Layman.Layouts
 open OrangeBug.DesktopClient
 open Microsoft.Xna.Framework
+open System.Collections.Immutable
+
+module ImmutableDictionary =
+    let tryFind key (dict: ImmutableDictionary<'key, 't>) =
+        match dict.TryGetValue key with
+        | true, v -> Some v
+        | _ -> None
+    
+    let ofSeq items =
+        items
+        |> Seq.map (fun (key, value) -> KeyValuePair(key, value))
+        |> ImmutableDictionary.CreateRange
+
+    let iter f (dict: ImmutableDictionary<'key, 't>) =
+        dict :> IEnumerable<KeyValuePair<'key, 't>>
+        |> Seq.iter (fun kvp -> f kvp.Key kvp.Value)
+
+type IElementState = interface end
+
+[<ReferenceEquality>]
+type PropertyKey =
+    {
+        name: string
+        propType: Type
+        defaultValue: obj
+    }
+    static member (@=) (key: PropertyKey, value: 'a) = KeyValuePair(key, value :> obj) // TODO: dynamic type check
+
+type PropertyBag = ImmutableDictionary<PropertyKey, obj>
+type ElementInstanceBag = ImmutableDictionary<PropertyKey, ElementInstance list>
+
+and ElementInfo = {
+    behavior: ElementBehavior
+    props: PropertyBag
+    state: IElementState
+    getParent: unit -> ElementInfo option
+    getChildren: PropertyKey -> ElementInfo list
+}
+
+and [<ReferenceEquality>] ElementBehavior = {
+    name: string
+    mount: PropertyBag -> IElementState // computes the initial state when a new instance of this element is created
+    unmount: ElementInfo -> unit // performs any cleanup tasks when the element is destroyed
+    render: ElementInfo -> VisualLayer.State -> VisualLayer.State // is called at 60 fps to draw the UI
+    layout: ElementInfo -> LayoutPhase -> LayoutResult
+}
+
+and ElementInstance = {
+    behavior: ElementBehavior
+    parent: ElementInstance option
+    mutable props: PropertyBag
+    mutable children: ElementInstanceBag
+    mutable state: IElementState
+}
 
 [<AutoOpen>]
 module PropertySystem =
-    [<ReferenceEquality>]
-    type PropertyKey =
-        {
-            name: string
-            propType: Type
-            defaultValue: obj
-        }
-        static member (@=) (key: PropertyKey, value: 'a) = key, value :> obj // TODO: dynamic type check
-        interface IComparable with
-            member x.CompareTo yObj =
-                match yObj with
-                | :? PropertyKey as y -> compare x.name y.name
-                | _ -> invalidArg "yObj" "Cannot compare values of different types"
-
     let declareProperty<'a> name (defaultValue: 'a) = {
         name = name
         propType = typedefof<'a>
         defaultValue = defaultValue
     }
 
-    type PropertyBag = Map<PropertyKey, obj>
-    let toPropertyBag = Map.ofList
+    let toPropertyBag list = ImmutableDictionary.CreateRange(list)
 
     let get<'a> (props: PropertyBag) key =
-        match props.TryFind key with
-        | Some value -> value :?> 'a
-        | None -> key.defaultValue :?> 'a
-
-type IElementState = interface end
-
-[<ReferenceEquality>]
-type ElementBehavior = {
-    name: string
-    mount: PropertyBag -> Map<PropertyKey, ElementInstance list> -> IElementState // computes the initial state when a new instance of this element is created
-    unmount: PropertyBag -> IElementState -> unit // performs any cleanup tasks when the element is destroyed
-    render: PropertyBag -> IElementState -> VisualLayer.State -> VisualLayer.State // is called at 60 fps to draw the UI
-    layout: PropertyBag -> IElementState -> LayoutPhase -> LayoutResult
-}
-
-and ElementInstance = {
-    behavior: ElementBehavior
-    mutable props: PropertyBag
-    mutable children: Map<PropertyKey, ElementInstance list>
-    mutable state: IElementState
-}
+        match props.TryGetValue key with
+        | true, value -> value :?> 'a
+        | _ -> key.defaultValue :?> 'a
 
 // this is only used to construct our "virtual DOM"
-type ElementNode = {
+type Element = {
     behavior: ElementBehavior
     props: PropertyBag
 }
@@ -73,24 +94,52 @@ module UIElement =
     let Key = declareProperty "Key" (None: IComparable option)
     let Width = declareProperty "Width" nan
     let Height = declareProperty "Height" nan
+    let MinWidth = declareProperty "MinWidth" 0.0
+    let MinHeight = declareProperty "MinHeight" 0.0
+    let MaxWidth = declareProperty "MaxWidth" infinity
+    let MaxHeight = declareProperty "MaxHeight" infinity
     let Margin = declareProperty "Margin" Thickness.zero
     let Padding = declareProperty "Padding" Thickness.zero
     let HorizontalAlignment = declareProperty "HorizontalAlignment" Alignment.Stretch
     let VerticalAlignment = declareProperty "VerticalAlignment" Alignment.Stretch
 
-module Zero =
-    let ZeroState = { new IElementState }
+    let standardLayout props (layoutCache: LayoutCache) childLayout =
+        let props =
+            { StandardLayouts.defaultProps with
+                size = layvec2 (get props Width) (get props Height)
+                minSize = layvec2 (get props MinWidth) (get props MinHeight)
+                maxSize = layvec2 (get props MaxWidth) (get props MaxHeight)
+                horizontalAlignment = get props HorizontalAlignment
+                verticalAlignment = get props VerticalAlignment
+                margin = get props Margin
+                padding = get props Padding
+            }
+        StandardLayouts.standardLayout props layoutCache childLayout
 
-    let Component = {
+    let rec elementInfo instance = {
+        state = instance.state
+        props = instance.props
+        behavior = instance.behavior
+        getParent = fun () -> instance.parent |> Option.map elementInfo
+        getChildren = fun prop ->
+            instance.children
+            |> ImmutableDictionary.tryFind prop
+            |> Option.defaultValue []
+            |> List.map elementInfo
+    }
+        
+module Zero =
+    let zeroState = { new IElementState }
+    let behavior = {
         name = "Zero"
-        mount = fun _ _ -> ZeroState
-        unmount = fun _ _ -> ()
-        render = fun _ _ -> id
-        layout = fun _ _ -> Layman.Layouts.DefaultLayouts.zero
+        mount = fun _ -> zeroState
+        unmount = ignore
+        render = fun _ -> id
+        layout = fun _ -> Layman.Layouts.DefaultLayouts.zero
     }
     let zero = {
-        behavior = Component
-        props = Map.empty
+        behavior = behavior
+        props = PropertyBag.Empty
     }
 
 module Border =
@@ -100,69 +149,46 @@ module Border =
     type State =
         {
             layoutCache: LayoutCache
-            child: ElementInstance option
         }
         interface IElementState
 
-    let mount props (children: Map<PropertyKey, ElementInstance list>) =
-        {
-            layoutCache = LayoutCache.create()
-            child = children |> Map.tryFind Child |> Option.map (fun c -> c.[0])
-        } :> IElementState
-    
-    let unmount props state = ()
+    let mount _ = { layoutCache = LayoutCache.create() } :> IElementState
 
-    let layout props (state: IElementState) =
-        let state = state :?> State
-
+    let layout (elem: ElementInfo) =
+        let state = elem.state :?> State
         let childLayout =
-            match state.child with
-            | Some child -> child.behavior.layout child.props child.state
-            | None -> zero
+            match elem.getChildren Child with
+            | child::_ -> child.behavior.layout child
+            | [] -> zero
+        standardLayout elem.props state.layoutCache childLayout
 
-        let props =
-            { StandardLayouts.defaultProps with
-                size = layvec2 (get props Width) (get props Height)
-                horizontalAlignment = get props HorizontalAlignment
-                verticalAlignment = get props VerticalAlignment
-                margin = get props Margin
-                padding = get props Padding
-            }
-        StandardLayouts.standardLayout props state.layoutCache childLayout
-
-    // At this point, all children are realized in the constructed UI tree.
-    // No need to look through props to find children to render, just access component state.
-    // This function must be fast, like 60 fps!
-    let render props (state: IElementState) (ctx: VisualLayer.State) =
-        let state = state :?> State
-        let cache = state.layoutCache
-
+    let render (elem: ElementInfo) =
         let childRender =
-            match state.child with
-            | Some child -> child.behavior.render child.props child.state
-            | None -> id
+            match elem.getChildren Child with
+            | child :: _ -> child.behavior.render child
+            | [] -> id
 
-        ctx
-        |> VisualLayer.pushVisual
-            {
-                Visual.empty with
-                    offset = Vector2(float32 cache.relativeBounds.X, float32 cache.relativeBounds.Y)
-                    size = Vector2(float32 cache.relativeBounds.Width, float32 cache.relativeBounds.Height)
-                    brush = get props Background
-            }
-        |> childRender
-        |> VisualLayer.pop
+        let bounds = (elem.state :?> State).layoutCache.relativeBounds
 
-    let Component = {
+        VisualLayer.pushVisual {
+            Visual.empty with
+                offset = Vector2(float32 bounds.X, float32 bounds.Y)
+                size = Vector2(float32 bounds.Width, float32 bounds.Height)
+                brush = get elem.props Background
+        }
+        >> childRender
+        >> VisualLayer.pop
+
+    let behavior = {
         name = "Border"
         mount = mount
-        unmount = unmount
+        unmount = ignore
         render = render
         layout = layout
     }
 
     let border props = {
-        behavior = Component
+        behavior = behavior
         props = toPropertyBag props
     }
 
@@ -179,17 +205,20 @@ module UI =
             projection xa xb key)
 
     type Diff =
-        | NoDiff of ElementInstance * ElementNode
-        | Update of ElementInstance * ElementNode
+        | NoDiff of ElementInstance * Element
+        | Update of ElementInstance * Element
         | Unmount of ElementInstance
-        | Mount of ElementNode
+        | Mount of Element
 
     let diffChildren (instances: ElementInstance seq) descriptions =
         let elementKey i props = get props Key |> Option.defaultValue (i :> IComparable)
         let keyedDescriptions = descriptions |> Seq.mapi (fun i desc -> elementKey i desc.props, desc)
         let keyedInstances = instances |> Seq.mapi (fun i inst -> elementKey i inst.props, inst)
 
-        // Now we need an outer join
+        // Do a full outer join to...
+        // (1) match elements with existing element instances and
+        // (2) find elements that need to be newly instantiated
+        // (3) find instances that are no longer part of virtual tree, hence must be unmounted
         (keyedInstances, keyedDescriptions)
         ||> fullOuterJoin fst fst (fun inst desc _ ->
             match inst, desc with
@@ -201,86 +230,94 @@ module UI =
             | None, Some(_, desc) -> Mount desc
             | None, None -> failwith "This should not happen")
     
-    let diffChildrenAllProps (instances: Map<PropertyKey, ElementInstance list>) node =
+    let diffChildrenAllProps (instances: ElementInstanceBag) node =
         // Find props holding a single child element and recursively instantiate them
         let singleChildProps =
             node.props
-            |> Seq.filter (fun (KeyValuePair(key, _)) -> key.propType = typedefof<ElementNode>)
-            |> Seq.map (fun (KeyValuePair(key, node)) -> key, Seq.singleton (node :?> ElementNode))
+            |> Seq.filter (fun (KeyValuePair(key, _)) -> key.propType = typedefof<Element>)
+            |> Seq.map (fun (KeyValuePair(key, node)) -> key, Seq.singleton (node :?> Element))
 
         // Find props holding collections of child elements and recursively instantiate them
         let multiChildProps = 
             node.props
-            |> Seq.filter (fun (KeyValuePair(key, _)) -> typedefof<ElementNode seq>.IsAssignableFrom key.propType)
-            |> Seq.map (fun (KeyValuePair(key, nodes)) -> key, (nodes :?> ElementNode seq))
-            |> Seq.filter (fun (key, nodes) -> not (Seq.isEmpty nodes))
+            |> Seq.filter (fun (KeyValuePair(key, _)) -> typedefof<Element seq>.IsAssignableFrom key.propType)
+            |> Seq.map (fun (KeyValuePair(key, nodes)) -> key, (nodes :?> Element seq))
+            |> Seq.filter (fun (_, nodes) -> not (Seq.isEmpty nodes))
 
         Seq.append singleChildProps multiChildProps
-        |> Map.ofSeq
-        |> Map.map (fun prop descriptions ->
-            let instances = Map.tryFind prop instances |> Option.defaultValue []
-            diffChildren instances descriptions)
+        |> Seq.map (fun (prop, descriptions) ->
+            let instances = ImmutableDictionary.tryFind prop instances |> Option.defaultValue []
+            prop, (diffChildren instances descriptions))
 
-    let rec updateChildrenAllProps instances node =
-        let handleProp _ diffs =
+    let rec updateChildrenAllProps instances node parent =
+        let handleProp (prop, diffs) =
+            let instances =
                 diffs
                 |> Seq.map (function
                     | NoDiff(inst, _) -> Some inst
-                    | Update(inst, desc) -> Some (updateSubtree inst desc)
-                    | Mount desc -> Some (mountSubtree desc)
+                    | Update(inst, desc) -> Some (updateSubtree inst desc parent)
+                    | Mount desc -> Some (mountSubtree desc parent)
                     | Unmount inst -> unmountSubtree inst; None)
                 |> Seq.filter (fun inst -> inst.IsSome)
                 |> Seq.map (fun inst -> inst.Value)
                 |> List.ofSeq
+            prop, instances
 
-        diffChildrenAllProps instances node |> Map.map handleProp
+        diffChildrenAllProps instances node
+        |> Seq.map handleProp
+        |> ImmutableDictionary.ofSeq
 
     and unmountSubtree (tOld: ElementInstance) =
-        tOld.behavior.unmount tOld.props tOld.state
-        tOld.children |> Map.iter (fun _ -> Seq.iter unmountSubtree)
+        tOld.behavior.unmount (elementInfo tOld)
+        tOld.children |> ImmutableDictionary.iter (fun _ -> Seq.iter unmountSubtree)
 
-    and mountSubtree (tNew: ElementNode) =
-        let allChildren = updateChildrenAllProps Map.empty tNew
-        let state = tNew.behavior.mount tNew.props allChildren
-        {
+    and mountSubtree (tNew: Element) parent =
+        let state = tNew.behavior.mount tNew.props
+        let instance = {
             behavior = tNew.behavior
+            parent = parent
             props = tNew.props
-            children = allChildren
+            children = ElementInstanceBag.Empty
             state = state
         }
+        instance.children <- updateChildrenAllProps ElementInstanceBag.Empty tNew (Some instance)
+        instance
 
-    and updateSubtree (tOld: ElementInstance) (tNew: ElementNode) =
+    and updateSubtree (tOld: ElementInstance) (tNew: Element) parent =
         // compare old and new:
         // if behavior and props are identical, stop recursion (subtree doesn't change)
         // otherwise, update props and recurse
         if tNew.behavior = tOld.behavior && tNew.props = tOld.props then
             tOld
         else
-            {
+            let instance = {
                 behavior = tOld.behavior // tNew has same behavior
+                parent = parent
+                children = ElementInstanceBag.Empty // assigned below
                 props = tNew.props
-                children = updateChildrenAllProps tOld.children tNew
                 state = tOld.state
             }
+            instance.children <- updateChildrenAllProps tOld.children tNew (Some instance)
+            instance
 
     // After a UI tree (or a part of it) was (re-)rendered, use this function
     // to determine and apply changes to the actual element instances.
-    let update (tOld: ElementInstance option) (tNew: ElementNode) =
+    let update (tOld: ElementInstance option) (tNew: Element) parent =
         match tOld with
-        | None -> mountSubtree tNew
-        | Some tOld -> updateSubtree tOld tNew
+        | None -> mountSubtree tNew parent
+        | Some tOld -> updateSubtree tOld tNew parent
 
 module UISample =
     let sample() =
         Border.border [
-            UIElement.HorizontalAlignment @= Layman.Alignment.End
+            UIElement.HorizontalAlignment @= Alignment.End
             UIElement.Width @= 100.0
             UIElement.Height @= 100.0
             Border.Background @= SolidColorBrush Color.Red
             Border.Child @= Border.border [
                 UIElement.Height @= 20.0
                 UIElement.Margin @= Thickness.createUniform 4.0
-                UIElement.VerticalAlignment @= Center
+                UIElement.VerticalAlignment @= Alignment.Center
                 Border.Background @= SolidColorBrush Color.DeepSkyBlue
             ]
         ]

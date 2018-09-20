@@ -173,43 +173,39 @@ module CameraComponent =
 
 
 type UIComponent = {
-    mutable construct: unit -> ElementNode
+    mutable root: ElementInstance option
+    mutable construct: unit -> Element
 }
 
 module UIComponent =
-    let drawUI scene (graphicsDevice: GraphicsDevice) =
-        // DEBUG: Construct UI tree each frame
-        let mutable uis = Map.empty
-        let constructUIs _ (node: SceneNode) ui =
-            let tree = UI.update None (ui.construct())
-            uis <- uis |> Map.add node.id tree
 
-        scene |> SceneGraph.iterComponents constructUIs ()
+    let updateUI (viewport: Viewport) (ui: UIComponent) =
+        // Construct UI once
+        // TODO: We need the ability to trigger re-rendering of individual elements.
+        if (ui.root.IsNone) then
+            ui.root <- Some (UI.update None (ui.construct()) None)
 
         // DEBUG: Perform a full re-layout each frame
-        let layoutUIs (node: SceneNode) _ =
-            match uis.TryFind node.id with
-            | Some element ->
-                let layout = element.behavior.layout element.props element.state
-                let space = layvec2 (float graphicsDevice.Viewport.Width) (float graphicsDevice.Viewport.Height)
-                let context = { parentCache = None; traceWriter = ignore }
-                let _, measureData = Layout.measure space context layout
-                let bounds = Layout.arrange (rect (layvec2 0.0 0.0) space) measureData context layout
-                ()
-            | _ -> ()
+        let root = ui.root.Value
+        let layout = root.behavior.layout (elementInfo root)
+        let space = layvec2 (float viewport.Width) (float viewport.Height)
+        let context = { parentCache = None; traceWriter = ignore }
+        let _, measureData = Layout.measure space context layout
+        Layout.arrange (rect (layvec2 0.0 0.0) space) measureData context layout |> ignore
 
-        scene.tree |> Tree.iter layoutUIs ()
+    let updateUIs scene viewport =
+        scene |> SceneGraph.iterComponents (fun _ _ -> updateUI viewport) ()
 
-        // Render UI
+    let renderUI = function
+        | Leave(context, _) -> context
+        | Enter(context, node) ->
+            match node |> SceneNode.tryGetComponent<UIComponent> with
+            | Some { root = Some root } -> root.behavior.render (elementInfo root) context 
+            | _ -> context
+
+
+    let renderUIs scene (graphicsDevice: GraphicsDevice) =
         let context = VisualLayer.beginFrame graphicsDevice
-
-        let drawVisualTree = function
-            | Leave(context, _) -> context
-            | Enter(context, node) ->
-                match uis.TryFind node.id with
-                | Some element -> element.behavior.render element.props element.state context 
-                | _ -> context
-        
         scene.tree
-        |> Tree.foldEvents drawVisualTree context
+        |> Tree.foldEvents renderUI context
         |> VisualLayer.endFrame
