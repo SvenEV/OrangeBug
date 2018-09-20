@@ -173,21 +173,20 @@ module CameraComponent =
 
 
 type UIComponent = {
-    mutable root: ElementInstance option
-    mutable construct: unit -> Element
+    ui: UI
 }
 
 module UIComponent =
 
-    let updateUI (viewport: Viewport) (ui: UIComponent) =
-        // Construct UI once
-        // TODO: We need the ability to trigger re-rendering of individual elements.
-        if (ui.root.IsNone) then
-            ui.root <- Some (UI.update None (ui.construct()) None)
+    let dummyInvalidate _ _ = ()
+
+    let updateUI (viewport: Viewport) (comp: UIComponent) =
+        // Re-render dirty elements
+        UI.update comp.ui
 
         // DEBUG: Perform a full re-layout each frame
-        let root = ui.root.Value
-        let layout = root.behavior.layout (elementInfo root)
+        let root = comp.ui.root
+        let layout = root.behavior.layout (elementInfo dummyInvalidate root)
         let space = layvec2 (float viewport.Width) (float viewport.Height)
         let context = { parentCache = None; traceWriter = ignore }
         let _, measureData = Layout.measure space context layout
@@ -200,9 +199,8 @@ module UIComponent =
         | Leave(context, _) -> context
         | Enter(context, node) ->
             match node |> SceneNode.tryGetComponent<UIComponent> with
-            | Some { root = Some root } -> root.behavior.render (elementInfo root) context 
+            | Some ui -> ui.ui.root.behavior.draw (elementInfo dummyInvalidate ui.ui.root) context 
             | _ -> context
-
 
     let renderUIs scene (graphicsDevice: GraphicsDevice) =
         let context = VisualLayer.beginFrame graphicsDevice

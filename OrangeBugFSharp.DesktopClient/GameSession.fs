@@ -59,7 +59,7 @@ module GameSession =
         let sampleUI = {
             id = "SampleUI"
             components = [
-                { root = None; construct = UISample.sample }
+                { ui = UI.create (UISample.sample()) }
             ]
         }
 
