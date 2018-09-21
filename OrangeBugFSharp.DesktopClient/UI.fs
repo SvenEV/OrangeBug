@@ -27,22 +27,34 @@ module ImmutableDictionary =
 
 type IElementState = interface end
 
+type IPropertyKey =
+    abstract member Name: string
+    abstract member PropertyType: Type
+    abstract member DefaultValue: obj
+
 [<ReferenceEquality>]
-type PropertyKey =
+type 'a PropertyKey =
     {
         name: string
-        propType: Type
-        defaultValue: obj
+        defaultValue: 'a
     }
-    // TODO: Static type checking is desirable for property assignments
-    static member (@=) (key: PropertyKey, value: 'a) =
-        if key.propType.IsAssignableFrom typedefof<'a>
-        then KeyValuePair(key, value :> obj)
-        else failwithf "Cannot assign value of type '%s' to property '%s' of type '%s'" (value.GetType().Name) key.name key.propType.Name
+    interface IPropertyKey with
+        member key.Name = key.name
+        member key.PropertyType = typedefof<'a>
+        member key.DefaultValue = key.defaultValue :> obj
+    static member (@=) (key: 'a PropertyKey, value: 'a) =
+        KeyValuePair(key :> IPropertyKey, value :> obj)
 
-type PropertyBag = ImmutableDictionary<PropertyKey, obj>
+[<RequireQualifiedAccess>]
+module PropertyKey =
+    let register name defaultValue = {
+        name = name
+        defaultValue = defaultValue
+    }
 
-and ElementInfo = {
+type PropertyBag = ImmutableDictionary<IPropertyKey, obj>
+
+type ElementInfo = {
     behavior: ElementBehavior
     props: PropertyBag
     state: IElementState
@@ -76,18 +88,12 @@ and [<ReferenceEquality>] ElementInstance = {
 
 [<AutoOpen>]
 module PropertySystem =
-    let declareProperty<'a> name (defaultValue: 'a) = {
-        name = name
-        propType = typedefof<'a>
-        defaultValue = defaultValue
-    }
-
     let toPropertyBag list = ImmutableDictionary.CreateRange(list)
 
     let get<'a> (props: PropertyBag) key =
         match props.TryGetValue key with
         | true, value -> value :?> 'a
-        | _ -> key.defaultValue :?> 'a
+        | _ -> key.DefaultValue :?> 'a
 
 [<AutoOpen>]
 module UIElement =
@@ -95,17 +101,17 @@ module UIElement =
     let layvec2 = Layman.BasicConstructors.vec2
     let nullState = { new IElementState }
 
-    let Key = declareProperty "Key" (None: IComparable option)
-    let Width = declareProperty "Width" nan
-    let Height = declareProperty "Height" nan
-    let MinWidth = declareProperty "MinWidth" 0.0
-    let MinHeight = declareProperty "MinHeight" 0.0
-    let MaxWidth = declareProperty "MaxWidth" infinity
-    let MaxHeight = declareProperty "MaxHeight" infinity
-    let Margin = declareProperty "Margin" Thickness.zero
-    let Padding = declareProperty "Padding" Thickness.zero
-    let HorizontalAlignment = declareProperty "HorizontalAlignment" Alignment.Stretch
-    let VerticalAlignment = declareProperty "VerticalAlignment" Alignment.Stretch
+    let Key = PropertyKey.register "Key" (None: IComparable option)
+    let Width = PropertyKey.register "Width" nan
+    let Height = PropertyKey.register "Height" nan
+    let MinWidth = PropertyKey.register "MinWidth" 0.0
+    let MinHeight = PropertyKey.register "MinHeight" 0.0
+    let MaxWidth = PropertyKey.register "MaxWidth" infinity
+    let MaxHeight = PropertyKey.register "MaxHeight" infinity
+    let Margin = PropertyKey.register "Margin" Thickness.zero
+    let Padding = PropertyKey.register "Padding" Thickness.zero
+    let HorizontalAlignment = PropertyKey.register "HorizontalAlignment" Alignment.Stretch
+    let VerticalAlignment = PropertyKey.register "VerticalAlignment" Alignment.Stretch
 
     let standardLayout props (layoutCache: LayoutCache) childLayout =
         let props =
@@ -153,8 +159,8 @@ module Zero =
     }
 
 module Border =
-    let Child = declareProperty "Child" Zero.zero
-    let Background = declareProperty "Background" (SolidColorBrush Color.Magenta)
+    let Child = PropertyKey.register "Child" Zero.zero
+    let Background = PropertyKey.register "Background" (SolidColorBrush Color.Magenta)
 
     type State =
         {
@@ -233,7 +239,7 @@ module UITree =
         ||> fullOuterJoin fst fst (fun inst desc _ ->
             match inst, desc with
             | Some(_, inst), Some(_, desc) ->
-                if inst.props = desc.props
+                if inst.behavior = desc.behavior && inst.props = desc.props
                 then NoDiff(inst, desc)
                 else Update(inst, desc)
             | Some(_, inst), None -> Unmount inst
@@ -324,7 +330,7 @@ module UI =
 
 
 module CustomElementSample =
-    let IsInitiallyOn = declareProperty "IsInitiallyOn" true
+    let IsInitiallyOn = PropertyKey.register "IsInitiallyOn" true
 
     type State = {
         mutable timer: Timer option
