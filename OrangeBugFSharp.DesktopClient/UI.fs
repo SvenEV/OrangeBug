@@ -226,73 +226,61 @@ module UITree =
         | Unmount of ElementInstance
         | Mount of Element
 
-    let diffChildren (instances: ElementInstance seq) (descriptions: Element seq) =
-        let elementKey i props = get props Key |> Option.defaultValue (i :> IComparable)
-        let keyedDescriptions = descriptions |> Seq.mapi (fun i desc -> elementKey i desc.props, desc)
-        let keyedInstances = instances |> Seq.mapi (fun i inst -> elementKey i inst.props, inst)
+    let rec unmountSubtree instance =
+        let dummyInvalidate _ () = () // invalidate has no effect during unmount
+        instance.behavior.unmount (elementInfo dummyInvalidate instance)
+        instance.children |> List.iter unmountSubtree
 
+    let rec mountSubtree parent invalidate (description: Element) =
+        let instance = {
+            behavior = description.behavior
+            parent = parent
+            props = description.props
+            state = Unchecked.defaultof<IElementState>
+            children = []
+        }
+        instance.state <- description.behavior.mount description.props (invalidate instance)
+        instance.children <-
+            description.behavior.render (elementInfo invalidate instance)
+            |> List.map (mountSubtree (Some instance) invalidate)
+        instance
+
+    let diff (inst: ElementInstance option) (desc: Element option) =
+        match inst, desc with
+        | None, None -> failwith "This should not happen"
+        | None, Some desc -> Mount desc
+        | Some inst, None -> Unmount inst
+        | Some inst, Some desc ->
+            // If behavior and props are identical, no need to rerender element (recursion stops)
+            if inst.behavior = desc.behavior && inst.props = desc.props
+            then NoDiff(inst, desc)
+            else Update(inst, desc)
+
+    let diffChildren (instances: ElementInstance seq) (descriptions: Element seq) =
         // Do a full outer join to...
         // (1) match elements with existing element instances and
         // (2) find elements that need to be newly instantiated
         // (3) find instances that are no longer part of virtual tree, hence must be unmounted
+        let elementKey i props = get props Key |> Option.defaultValue (i :> IComparable)
+        let keyedDescriptions = descriptions |> Seq.mapi (fun i desc -> elementKey i desc.props, desc)
+        let keyedInstances = instances |> Seq.mapi (fun i inst -> elementKey i inst.props, inst)
         (keyedInstances, keyedDescriptions)
-        ||> fullOuterJoin fst fst (fun inst desc _ ->
-            match inst, desc with
-            | Some(_, inst), Some(_, desc) ->
-                if inst.behavior = desc.behavior && inst.props = desc.props
-                then NoDiff(inst, desc)
-                else Update(inst, desc)
-            | Some(_, inst), None -> Unmount inst
-            | None, Some(_, desc) -> Mount desc
-            | None, None -> failwith "This should not happen")
+        ||> fullOuterJoin fst fst (fun inst desc _ -> diff (Option.map snd inst) (Option.map snd desc))
     
-    let rec unmountSubtree (tOld: ElementInstance) =
-        let dummyInvalidate _ () = () // invalidate has no effect during unmount
-        tOld.behavior.unmount (elementInfo dummyInvalidate tOld)
-        tOld.children |> List.iter unmountSubtree
-
-    let rec mountSubtree parent invalidate (tNew: Element) =
-        let instance = {
-            behavior = tNew.behavior
-            parent = parent
-            props = tNew.props
-            state = Unchecked.defaultof<IElementState>
-            children = []
-        }
-        instance.state <- tNew.behavior.mount tNew.props (invalidate instance)
-        instance.children <-
-            tNew.behavior.render (elementInfo invalidate instance)
-            |> List.map (mountSubtree (Some instance) invalidate)
-        instance
-
-    and updateSubtree parent invalidate (tOld: ElementInstance) (tNew: Element) =
-        // compare old and new:
-        // if behavior and props are identical, stop recursion (subtree doesn't change)
-        // otherwise, update props and recurse
-        if tNew.behavior = tOld.behavior && tNew.props = tOld.props then
-            tOld
-        else
-            let instance = {
-                behavior = tOld.behavior // tNew has same behavior
-                parent = parent
-                props = tNew.props
-                state = tOld.state
-                children = []
-            }
-            instance.children <-
-                tNew.behavior.render (elementInfo invalidate instance)
-                |> updateChildren instance invalidate tOld.children 
-            instance
-
-    and updateChildren parent invalidate oldChildren newChildren =
+    let rec rerenderSubtree invalidate instance =
         let handleDiff = function
-            | NoDiff(inst, _) -> Some inst
-            | Update(inst, desc) -> Some (updateSubtree (Some parent) invalidate inst desc)
-            | Mount(desc) -> Some (mountSubtree (Some parent) invalidate desc)
+            | Mount(desc) -> mountSubtree (Some instance) invalidate desc |> Some
             | Unmount(inst) -> unmountSubtree inst; None
-        diffChildren oldChildren newChildren
-        |> Seq.choose handleDiff
-        |> List.ofSeq
+            | NoDiff(inst, _) -> Some inst
+            | Update(inst, desc) ->
+                inst.props <- desc.props
+                rerenderSubtree invalidate inst
+                Some inst
+        instance.children <-
+            instance.behavior.render (elementInfo invalidate instance)
+            |> diffChildren instance.children
+            |> Seq.choose handleDiff
+            |> List.ofSeq
 
 type UI = {
     mutable root: ElementInstance
@@ -313,19 +301,15 @@ module UI =
         ui
 
     let update ui =
-        let re'render instance =
+        let rerender instance =
+            // Re-render unless there's a dirty ancestor - in that case re-rendering is useless
             let ancestors = Seq.unfold (fun inst -> inst.parent |> Option.map (fun p -> p, p)) instance
-            if ancestors |> Seq.exists (fun a -> ui.dirtyInstances |> Seq.contains a) then
-                () // found a dirty ancestor - re-rendering is useless
-            else
-                let invalidate = invalidate ui
-                let newChildren = instance.behavior.render (elementInfo invalidate instance)
-                let updatedChildInstances = UITree.updateChildren instance invalidate instance.children newChildren
-                instance.children <- updatedChildInstances
+            if not (ancestors |> Seq.exists (fun a -> ui.dirtyInstances |> Seq.contains a)) then
+                UITree.rerenderSubtree (invalidate ui) instance
 
         while not ui.dirtyInstances.IsEmpty do
             let remainingDirty, instance = ui.dirtyInstances.Dequeue()
-            re'render instance
+            rerender instance
             ui.dirtyInstances <- remainingDirty
 
 
