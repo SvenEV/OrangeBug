@@ -184,7 +184,7 @@ module UIComponent =
         // Re-render dirty elements
         UI.update comp.ui
 
-        // DEBUG: Perform a full re-layout each frame
+        // Perform layout pass. If nothing changed, LayoutCaches let this terminate quickly.
         let root = comp.ui.root
         let layout = root.behavior.layout (elementInfo dummyInvalidate root)
         let space = layvec2 (float viewport.Width) (float viewport.Height)

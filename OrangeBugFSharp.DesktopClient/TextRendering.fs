@@ -58,9 +58,9 @@ module TextRendering =
             else None
 
         let (|KnownGlyph|_|) c =
-            match glyphs.TryGetValue c with
-            | true, g -> Some g
-            | _ -> defaultGlyph
+            match glyphs.TryFind c with
+            | None -> defaultGlyph
+            | g -> g
 
         let handleChar offset = function
             | '\r' -> None, offset

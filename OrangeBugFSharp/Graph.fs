@@ -1,7 +1,6 @@
 ﻿namespace OrangeBug
 
 open System.Collections.Generic
-open System.Collections.Generic
 
 type 'a Graph when 'a: comparison = {
     inEdges: Map<'a, 'a Set>
@@ -67,8 +66,8 @@ module Graph =
             if not (visited.Contains node) then
                 visited.Add node |> ignore
                 yield node
-                match graph.outEdges.TryGetValue node with
-                | true, neighbors -> neighbors |> Seq.iter queue.Enqueue
+                match graph.outEdges.TryFind node with
+                | Some neighbors -> neighbors |> Seq.iter queue.Enqueue
                 | _ -> ()
     }
 

@@ -4,6 +4,9 @@ open Microsoft.Xna.Framework
 open OrangeBug
 open System
 open System.Runtime.CompilerServices
+open System.Collections.Generic
+open System.Collections.Immutable
+open System.Linq
 
 [<AutoOpen>]
 module Mathf =
@@ -23,6 +26,7 @@ module Mathf =
 
 [<AutoOpen>]
 module Extensions =
+    let (|KeyValuePair|) (kvp: KeyValuePair<'key, 't>) = kvp.Key, kvp.Value
     
     [<Extension>]
     type LaymanExtensions =
@@ -44,3 +48,44 @@ module Extensions =
             | West -> pi'2
             | South -> pi
             | East -> pi + pi'2
+
+module KeyValuePair =
+    let asTuple (kvp: KeyValuePair<'key, 't>) = kvp.Key, kvp.Value
+    let ofTuple (k, v) = KeyValuePair(k, v)
+    let key (kvp: KeyValuePair<'key, 't>) = kvp.Key
+    let value (kvp: KeyValuePair<'key, 't>) = kvp.Value
+
+module Dictionary =
+    let tryFind key (dict: IDictionary<'key, 't>) =
+        match dict.TryGetValue key with
+        | true, v -> Some v
+        | _ -> None
+    
+    let ofSeq = ImmutableDictionary.CreateRange
+    let ofTupleSeq items = items |> Seq.map KeyValuePair.ofTuple |> ofSeq
+
+    let iter f (dict: IDictionary<'key, 't>) =
+        dict :> IEnumerable<KeyValuePair<'key, 't>>
+        |> Seq.iter (fun kvp -> f kvp.Key kvp.Value)
+
+    let equal (a: IDictionary<'key, 't>) (b: IDictionary<'key, 't>) =
+        a.Count = b.Count && Enumerable.SequenceEqual(a, b) // note: count check for performance only
+
+[<AutoOpen>]
+module DictionaryExtensions =
+    type IDictionary<'key, 't> with
+        member dict.TryFind key = Dictionary.tryFind key dict
+
+module ImmutableHashSet =
+    let ofSeq = ImmutableHashSet.CreateRange
+    let union (a: ImmutableHashSet<'a>) b = a.Union b
+
+module Seq =
+    let fullOuterJoin keyA keyB projection a b =
+        let alookup = a |> Seq.map (fun v -> keyA v, v) |> dict // assumption: no duplicate keys
+        let blookup = b |> Seq.map (fun v -> keyB v, v) |> dict
+        ImmutableHashSet.union (ImmutableHashSet.ofSeq alookup.Keys) (ImmutableHashSet.ofSeq blookup.Keys)
+        |> Seq.map (fun key ->
+            let xa = alookup.TryFind key
+            let xb = blookup.TryFind key
+            projection xa xb key)

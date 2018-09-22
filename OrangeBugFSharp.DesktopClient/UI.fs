@@ -1,63 +1,81 @@
 namespace OrangeBug.DesktopClient.LibUI
 
 open System
+open System.Collections
 open System.Collections.Generic
+open System.Collections.Immutable
+open System.Linq
+open System.Threading
 open Layman
 open Layman.Layouts
 open OrangeBug.DesktopClient
 open Microsoft.Xna.Framework
-open System.Collections.Immutable
-open System.Threading
 open Microsoft.Xna.Framework.Input
 
-module ImmutableDictionary =
-    let tryFind key (dict: ImmutableDictionary<'key, 't>) =
-        match dict.TryGetValue key with
-        | true, v -> Some v
-        | _ -> None
-    
-    let ofSeq items =
-        items
-        |> Seq.map (fun (key, value) -> KeyValuePair(key, value))
-        |> ImmutableDictionary.CreateRange
-
-    let iter f (dict: ImmutableDictionary<'key, 't>) =
-        dict :> IEnumerable<KeyValuePair<'key, 't>>
-        |> Seq.iter (fun kvp -> f kvp.Key kvp.Value)
-
 type IElementState = interface end
+
+type LayoutEffect =
+    | NoLayoutEffect
+    | AffectsMeasure
+    | AffectsArrange
 
 type IPropertyKey =
     abstract member Name: string
     abstract member PropertyType: Type
     abstract member DefaultValue: obj
+    abstract member LayoutEffect: LayoutEffect
 
 [<ReferenceEquality>]
 type 'a PropertyKey =
     {
         name: string
         defaultValue: 'a
+        layoutEffect: LayoutEffect
     }
     interface IPropertyKey with
         member key.Name = key.name
         member key.PropertyType = typedefof<'a>
         member key.DefaultValue = key.defaultValue :> obj
+        member key.LayoutEffect = key.layoutEffect
     static member (@=) (key: 'a PropertyKey, value: 'a) =
-        KeyValuePair(key :> IPropertyKey, value :> obj)
+        key :> IPropertyKey, value :> obj
 
 [<RequireQualifiedAccess>]
 module PropertyKey =
-    let register name defaultValue = {
+    let register name defaultValue layoutEffect = {
         name = name
         defaultValue = defaultValue
+        layoutEffect = layoutEffect
     }
 
-type PropertyBag = ImmutableDictionary<IPropertyKey, obj>
+type PropertyBag(entries: seq<IPropertyKey * obj>) =
+    static member Empty = PropertyBag(Enumerable.Empty())
+    member val private props = Dictionary.ofTupleSeq entries
+    member bag.get (key: 'a PropertyKey) =
+        match bag.props.TryFind key with
+        | Some value -> value :?> 'a
+        | None -> key.defaultValue
+    member bag.get (key: IPropertyKey) =
+        match bag.props.TryFind key with
+        | Some value -> value
+        | None -> key.DefaultValue
+    interface IEquatable<PropertyBag> with
+        member a.Equals(b) = Dictionary.equal a.props b.props
+    interface IEnumerable<IPropertyKey * obj> with
+        member bag.GetEnumerator(): IEnumerator =
+            (bag.props |> Seq.map KeyValuePair.asTuple).GetEnumerator() :> IEnumerator
+        member bag.GetEnumerator(): IEnumerator<IPropertyKey * obj> =
+            (bag.props |> Seq.map KeyValuePair.asTuple).GetEnumerator()
+    override a.Equals(b) =
+        match b with
+        | :? PropertyBag as b -> Dictionary.equal a.props b.props
+        | _ -> false
 
 type ElementInfo = {
     behavior: ElementBehavior
     props: PropertyBag
     state: IElementState
+    layoutCache: LayoutCache
     getParent: unit -> ElementInfo option
     getChildren: unit -> ElementInfo list
     invalidate: unit -> unit
@@ -67,6 +85,7 @@ and [<ReferenceEquality; StructuredFormatDisplay("{name}")>] ElementBehavior = {
     name: string
     mount: PropertyBag -> (unit -> unit) -> IElementState // computes the initial state when a new instance of this element is created
     unmount: ElementInfo -> unit // performs any cleanup tasks when the element is destroyed
+    propsChanged: ElementInfo -> PropertyBag -> unit
     draw: ElementInfo -> VisualLayer.State -> VisualLayer.State // is called at 60 fps to draw the UI
     layout: ElementInfo -> LayoutPhase -> LayoutResult
     render: ElementInfo -> Element list
@@ -81,6 +100,7 @@ and Element = {
 and [<ReferenceEquality>] ElementInstance = {
     behavior: ElementBehavior
     parent: ElementInstance option // actual parent in fully rendered tree
+    layoutCache: LayoutCache
     mutable children: ElementInstance list // actual children in fully rendered tree
     mutable props: PropertyBag
     mutable state: IElementState
@@ -88,12 +108,12 @@ and [<ReferenceEquality>] ElementInstance = {
 
 [<AutoOpen>]
 module PropertySystem =
-    let toPropertyBag list = ImmutableDictionary.CreateRange(list)
+    let get (props: PropertyBag) key = props.get key
 
-    let get<'a> (props: PropertyBag) key =
-        match props.TryGetValue key with
-        | true, value -> value :?> 'a
-        | _ -> key.DefaultValue :?> 'a
+    let diffProps (oldProps: PropertyBag) (newProps: PropertyBag) =
+        (oldProps, newProps)
+        ||> Seq.fullOuterJoin fst fst (fun a b key -> if a = b then None else Some key)
+        |> Seq.choose id
 
 [<AutoOpen>]
 module UIElement =
@@ -101,17 +121,17 @@ module UIElement =
     let layvec2 = Layman.BasicConstructors.vec2
     let nullState = { new IElementState }
 
-    let Key = PropertyKey.register "Key" (None: IComparable option)
-    let Width = PropertyKey.register "Width" nan
-    let Height = PropertyKey.register "Height" nan
-    let MinWidth = PropertyKey.register "MinWidth" 0.0
-    let MinHeight = PropertyKey.register "MinHeight" 0.0
-    let MaxWidth = PropertyKey.register "MaxWidth" infinity
-    let MaxHeight = PropertyKey.register "MaxHeight" infinity
-    let Margin = PropertyKey.register "Margin" Thickness.zero
-    let Padding = PropertyKey.register "Padding" Thickness.zero
-    let HorizontalAlignment = PropertyKey.register "HorizontalAlignment" Alignment.Stretch
-    let VerticalAlignment = PropertyKey.register "VerticalAlignment" Alignment.Stretch
+    let Key = PropertyKey.register "Key" (None: IComparable option) NoLayoutEffect
+    let Width = PropertyKey.register "Width" nan AffectsMeasure
+    let Height = PropertyKey.register "Height" nan  AffectsMeasure
+    let MinWidth = PropertyKey.register "MinWidth" 0.0  AffectsMeasure
+    let MinHeight = PropertyKey.register "MinHeight" 0.0  AffectsMeasure
+    let MaxWidth = PropertyKey.register "MaxWidth" infinity  AffectsMeasure
+    let MaxHeight = PropertyKey.register "MaxHeight" infinity  AffectsMeasure
+    let Margin = PropertyKey.register "Margin" Thickness.zero  AffectsMeasure
+    let Padding = PropertyKey.register "Padding" Thickness.zero  AffectsMeasure
+    let HorizontalAlignment = PropertyKey.register "HorizontalAlignment" Alignment.Stretch AffectsArrange
+    let VerticalAlignment = PropertyKey.register "VerticalAlignment" Alignment.Stretch AffectsArrange
 
     let standardLayout props (layoutCache: LayoutCache) childLayout =
         let props =
@@ -125,7 +145,13 @@ module UIElement =
                 padding = get props Padding
             }
         StandardLayouts.standardLayout props layoutCache childLayout
-        >> fun r -> LayoutCache.invalidateMeasure layoutCache; r // DEBUG: Do not cache layout results
+
+    let defaultPropsChanged (elem: ElementInfo) oldProps =
+        let diff = diffProps oldProps elem.props
+        if diff |> Seq.exists (fun key -> key.LayoutEffect = AffectsMeasure) then
+            LayoutCache.invalidateMeasure elem.layoutCache
+        else if diff |> Seq.exists (fun key -> key.LayoutEffect = AffectsArrange) then
+            LayoutCache.invalidateArrange elem.layoutCache
 
     let defaultLayout (elem: ElementInfo) =
         overlay (elem.getChildren() |> List.map (fun child -> child.behavior.layout child))
@@ -137,6 +163,7 @@ module UIElement =
         name = name
         mount = (fun _ _ -> nullState)
         unmount = ignore
+        propsChanged = defaultPropsChanged
         layout = defaultLayout
         draw = defaultDraw
         render = fun _ -> []
@@ -146,6 +173,7 @@ module UIElement =
         state = instance.state
         props = instance.props
         behavior = instance.behavior
+        layoutCache = instance.layoutCache
         getChildren = fun () -> instance.children |> List.map (elementInfo invalidate)
         getParent = fun () -> instance.parent |> Option.map (elementInfo invalidate)
         invalidate = invalidate instance
@@ -159,24 +187,15 @@ module Zero =
     }
 
 module Border =
-    let Child = PropertyKey.register "Child" Zero.zero
-    let Background = PropertyKey.register "Background" (SolidColorBrush Color.Magenta)
-
-    type State =
-        {
-            layoutCache: LayoutCache
-        }
-        interface IElementState
-
-    let mount _ _ = { layoutCache = LayoutCache.create() } :> IElementState
+    let Child = PropertyKey.register "Child" Zero.zero AffectsMeasure
+    let Background = PropertyKey.register "Background" (SolidColorBrush Color.Magenta) NoLayoutEffect
 
     let layout (elem: ElementInfo) =
-        let state = elem.state :?> State
         let childLayout =
             match elem.getChildren() with
             | child::_ -> child.behavior.layout child
             | _ -> zero
-        standardLayout elem.props state.layoutCache childLayout
+        standardLayout elem.props elem.layoutCache childLayout
 
     let draw (elem: ElementInfo) =
         let childDraw =
@@ -184,7 +203,7 @@ module Border =
             | child::_ -> child.behavior.draw child
             | _ -> id
 
-        let bounds = (elem.state :?> State).layoutCache.relativeBounds
+        let bounds = elem.layoutCache.relativeBounds
 
         VisualLayer.pushVisual {
             Visual.empty with
@@ -197,7 +216,6 @@ module Border =
 
     let behavior = {
         defaultBehavior "Border" with
-            mount = mount
             draw = draw
             layout = layout
             render = fun elem -> [get elem.props Child]
@@ -205,31 +223,18 @@ module Border =
 
     let border props = {
         behavior = behavior
-        props = toPropertyBag props
+        props = PropertyBag(props)
     }
 
 module TextBlock =
-    let Text = PropertyKey.register "Text" ""
-
-    type State = {
-        layoutCache: LayoutCache
-    } with interface IElementState
-
-    let mount _ _ = { layoutCache = LayoutCache.create() } :> IElementState
+    let Text = PropertyKey.register "Text" "" AffectsMeasure
 
     let layout (elem: ElementInfo) =
         let size = TextRendering2.measure (get elem.props Text)
-        standardLayout elem.props (elem.state :?> State).layoutCache (fixedSize (layvec2 (float size.X) (float size.Y)) zero)
+        standardLayout elem.props elem.layoutCache (fixedSize (layvec2 (float size.X) (float size.Y)) zero)
 
     let draw (elem: ElementInfo) (context: VisualLayer.State) =
-        let childDraw =
-            match elem.getChildren() with
-            | child::_ -> child.behavior.draw child
-            | _ -> id
-
-        let state = elem.state :?> State
-        let bounds = state.layoutCache.relativeBounds
-
+        let bounds = elem.layoutCache.relativeBounds
         let tex = TextRendering2.renderToTexture (get elem.props Text) (bounds.size.AsXna()) context.graphicsDevice
 
         context
@@ -239,33 +244,21 @@ module TextBlock =
                 size = Vector2(float32 bounds.Width, float32 bounds.Height)
                 brush = TextureBrush tex 
         }
-        |> childDraw
         |> VisualLayer.pop
 
     let behavior = {
         defaultBehavior "TextBlock" with
-            mount = mount
             layout = layout
             draw = draw
     }
 
     let textBlock props = {
         behavior = behavior
-        props = toPropertyBag props
+        props = PropertyBag(props)
     }
 
 
 module UITree =
-    let (|KeyValuePair|) (kvp: KeyValuePair<'key, 't>) = kvp.Key, kvp.Value
-
-    let fullOuterJoin keyA keyB projection a b =
-        let alookup = a |> Seq.map (fun v -> keyA v, v) |> dict // assumption: no duplicate keys
-        let blookup = b |> Seq.map (fun v -> keyB v, v) |> dict
-        Set.union (set alookup.Keys) (set blookup.Keys)
-        |> Seq.map (fun key ->
-            let xa = match alookup.TryGetValue key with true, v -> Some v | _ -> None
-            let xb = match blookup.TryGetValue key with true, v -> Some v | _ -> None
-            projection xa xb key)
 
     type Diff =
         | NoDiff of ElementInstance * Element
@@ -282,6 +275,7 @@ module UITree =
         let instance = {
             behavior = description.behavior
             parent = parent
+            layoutCache = LayoutCache.create()
             props = description.props
             state = Unchecked.defaultof<IElementState>
             children = []
@@ -299,6 +293,7 @@ module UITree =
         | Some inst, None -> [Unmount inst]
         | Some inst, Some desc when inst.behavior = desc.behavior ->
             // If behavior and props are identical, no need to rerender element (recursion stops)
+            // (caution: 'PropertyBag' is an 'ImmutableDictionary' which only has reference equality)
             if inst.props = desc.props
             then [NoDiff(inst, desc)]
             else [Update(inst, desc)]
@@ -315,7 +310,7 @@ module UITree =
         let keyedDescriptions = descriptions |> Seq.mapi (fun i desc -> elementKey i desc.props, desc)
         let keyedInstances = instances |> Seq.mapi (fun i inst -> elementKey i inst.props, inst)
         (keyedInstances, keyedDescriptions)
-        ||> fullOuterJoin fst fst (fun inst desc _ -> diff (Option.map snd inst) (Option.map snd desc))
+        ||> Seq.fullOuterJoin fst fst (fun inst desc _ -> diff (Option.map snd inst) (Option.map snd desc))
     
     let rec rerenderSubtree invalidate instance =
         let handleDiff = function
@@ -323,7 +318,9 @@ module UITree =
             | Unmount(inst) -> unmountSubtree inst; None
             | NoDiff(inst, _) -> Some inst
             | Update(inst, desc) ->
+                let oldProps = inst.props
                 inst.props <- desc.props
+                inst.behavior.propsChanged (elementInfo invalidate inst) oldProps
                 rerenderSubtree invalidate inst
                 Some inst
         instance.children <-
@@ -365,22 +362,28 @@ module UI =
 
 
 module CustomElementSample =
-    let IsInitiallyOn = PropertyKey.register "IsInitiallyOn" true
+    let IsInitiallyOn = PropertyKey.register "IsInitiallyOn" true NoLayoutEffect
 
     type State = {
         mutable timer: Timer option
         mutable isOn: bool
+        mutable center: bool
     } with interface IElementState
 
     let mount props invalidate =
         let state = {
             isOn = get props IsInitiallyOn
+            center = true
             timer = None
         }
         let tick _ =
             if Keyboard.GetState().IsKeyDown(Keys.Space) then
                 state.isOn <- not state.isOn
                 invalidate()
+            if Keyboard.GetState().IsKeyDown(Keys.Enter) then
+                state.center <- not state.center
+                invalidate()
+                
         state.timer <- Some (new Timer(tick, null, 16, 16))
         state :> IElementState
 
@@ -393,6 +396,7 @@ module CustomElementSample =
             Border.border [
                 UIElement.Margin @= Thickness.createUniform 20.0
                 UIElement.Padding @= Thickness.createUniform 2.0
+                UIElement.HorizontalAlignment @= if state.center then Stretch else Start
                 Border.Background @= SolidColorBrush Color.Cyan
                 Border.Child @=
                     if state.isOn
@@ -409,7 +413,7 @@ module CustomElementSample =
 
     let customElementSample props = {
         behavior = behavior
-        props = toPropertyBag props
+        props = PropertyBag(props)
     }
 
 module UISample =
