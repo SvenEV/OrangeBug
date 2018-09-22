@@ -8,9 +8,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Extensions.fs" />
-    <Compile Include="SpriteBatch3D.fs" />
     <Compile Include="Tree.fs" />
     <Compile Include="SceneGraph.fs" />
+    <Compile Include="TextRendering.fs" />
+    <Compile Include="SpriteBatch3D.fs" />
     <Compile Include="VisualLayer.fs" />
     <Compile Include="UI.fs" />
     <Compile Include="Animation.fs" />
@@ -24,6 +25,7 @@
     <PackageReference Update="FSharp.Core" Version="4.5.2" />
     <PackageReference Include="Lox" Version="0.1.0-CI-20180916-135119" />
     <PackageReference Include="Layman" Version="0.1.0-CI-20180916-111141" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta0005" />
     <PackageReference Include="MonoGame.Content.Builder" Version="3.7.0.9" />
     <PackageReference Include="MonoGame.Framework.DesktopGL.Core" Version="3.7.0.7" />
   </ItemGroup>

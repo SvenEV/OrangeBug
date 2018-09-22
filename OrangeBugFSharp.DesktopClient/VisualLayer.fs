@@ -12,7 +12,9 @@ type Angle =
 type VisualBrush =
     | NoBrush
     | SolidColorBrush of Color
-    | Texture of Texture2D
+    | TextureBrush of Texture2D
+    | TextureNineGridBrush of Texture2D // * more info... TODO
+    | TextBrush of string * SpriteFont
 
 type Visual = {
     offset: Vector2
@@ -58,15 +60,6 @@ module VisualLayer =
             0.0f
         )
 
-    let quadVertices (size: Vector2) = 
-        [|
-            // To account for the flipped Y axis (y=0 is top), the UVs are flipped here (textures would be upside-down otherwise)
-            VertexPositionNormalTexture(Vector3.Zero, Vector3.Backward, Vector2.Zero) // bottom left
-            VertexPositionNormalTexture(Vector3.UnitY * size.Y, Vector3.Backward, Vector2.UnitY) // top left
-            VertexPositionNormalTexture(Vector3.UnitX * size.X, Vector3.Backward, Vector2.UnitX) // bottom right
-            VertexPositionNormalTexture(Vector3(size.X, size.Y, 0.0f), Vector3.Backward, Vector2.One) // top right
-        |]
-
     type State = {
         graphicsDevice: GraphicsDevice
         matrixStack: Matrix list
@@ -106,30 +99,35 @@ module VisualLayer =
         let viewportHeight = float32 state.graphicsDevice.Viewport.Height
         effect.World <- worldMatrix * (flipY viewportHeight)
 
+        let drawQuad quad =
+            for pass in effect.CurrentTechnique.Passes do
+                pass.Apply()
+                state.graphicsDevice.DrawUserIndexedPrimitives(
+                    PrimitiveType.TriangleList,
+                    quad.vertices, 0, 4,
+                    Quad.indices, 0, 2
+                )
+
         // Apply brush
         match visual.brush with
         | NoBrush -> ()
-        | SolidColorBrush color -> effect.DiffuseColor <- color.ToVector3()
-        | Texture tex ->
+        | SolidColorBrush color ->
+            effect.DiffuseColor <- color.ToVector3()
+            drawQuad (Quad.create Vector2.Zero visual.size color)
+        | TextureBrush tex ->
             effect.Texture <- tex
             effect.TextureEnabled <- true
             effect.DiffuseColor <- Color.White.ToVector3()
-
-        // Draw quad
-        for pass in effect.CurrentTechnique.Passes do
-            pass.Apply()
-            state.graphicsDevice.DrawUserIndexedPrimitives(
-                PrimitiveType.TriangleList,
-                quadVertices visual.size, 0, 4,
-                SpriteBatch3D.quadIndices, 0, 2
-            )
+            drawQuad (Quad.create Vector2.Zero visual.size Color.White)
+            effect.TextureEnabled <- false
+        | TextBrush(s, font) ->
+            effect.Texture <- font.Texture
+            effect.TextureEnabled <- true
+            effect.DiffuseColor <- Color.Black.ToVector3()
+            let quads = TextRendering.render s font
+            quads |> Seq.iter drawQuad
+            effect.TextureEnabled <- false
         
-        // Undo brush changes
-        match visual.brush with
-        | NoBrush -> ()
-        | SolidColorBrush _ -> ()
-        | Texture _ -> effect.TextureEnabled <- false
-
         { state with matrixStack = worldMatrix :: state.matrixStack }
 
     let pop state =

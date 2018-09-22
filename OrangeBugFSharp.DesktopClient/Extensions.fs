@@ -3,6 +3,7 @@ namespace OrangeBug.DesktopClient
 open Microsoft.Xna.Framework
 open OrangeBug
 open System
+open System.Runtime.CompilerServices
 
 [<AutoOpen>]
 module Mathf =
@@ -22,6 +23,12 @@ module Mathf =
 
 [<AutoOpen>]
 module Extensions =
+    
+    [<Extension>]
+    type LaymanExtensions =
+        [<Extension>]
+        static member inline AsXna(v: Layman.Vector2) = Vector2(float32 v.x, float32 v.y)
+
     type Vector3 with
         member v.XY = Vector2(v.X, v.Y)
         member v.XZ = Vector2(v.X, v.Y)

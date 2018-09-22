@@ -208,6 +208,53 @@ module Border =
         props = toPropertyBag props
     }
 
+module TextBlock =
+    let Text = PropertyKey.register "Text" ""
+
+    type State = {
+        layoutCache: LayoutCache
+    } with interface IElementState
+
+    let mount _ _ = { layoutCache = LayoutCache.create() } :> IElementState
+
+    let layout (elem: ElementInfo) =
+        let size = TextRendering2.measure (get elem.props Text)
+        standardLayout elem.props (elem.state :?> State).layoutCache (fixedSize (layvec2 (float size.X) (float size.Y)) zero)
+
+    let draw (elem: ElementInfo) (context: VisualLayer.State) =
+        let childDraw =
+            match elem.getChildren() with
+            | child::_ -> child.behavior.draw child
+            | _ -> id
+
+        let state = elem.state :?> State
+        let bounds = state.layoutCache.relativeBounds
+
+        let tex = TextRendering2.renderToTexture (get elem.props Text) (bounds.size.AsXna()) context.graphicsDevice
+
+        context
+        |> VisualLayer.pushVisual {
+            Visual.empty with
+                offset = Vector2(float32 bounds.X, float32 bounds.Y)
+                size = Vector2(float32 bounds.Width, float32 bounds.Height)
+                brush = TextureBrush tex 
+        }
+        |> childDraw
+        |> VisualLayer.pop
+
+    let behavior = {
+        defaultBehavior "TextBlock" with
+            mount = mount
+            layout = layout
+            draw = draw
+    }
+
+    let textBlock props = {
+        behavior = behavior
+        props = toPropertyBag props
+    }
+
+
 module UITree =
     let (|KeyValuePair|) (kvp: KeyValuePair<'key, 't>) = kvp.Key, kvp.Value
 
@@ -248,13 +295,16 @@ module UITree =
     let diff (inst: ElementInstance option) (desc: Element option) =
         match inst, desc with
         | None, None -> failwith "This should not happen"
-        | None, Some desc -> Mount desc
-        | Some inst, None -> Unmount inst
-        | Some inst, Some desc ->
+        | None, Some desc -> [Mount desc]
+        | Some inst, None -> [Unmount inst]
+        | Some inst, Some desc when inst.behavior = desc.behavior ->
             // If behavior and props are identical, no need to rerender element (recursion stops)
-            if inst.behavior = desc.behavior && inst.props = desc.props
-            then NoDiff(inst, desc)
-            else Update(inst, desc)
+            if inst.props = desc.props
+            then [NoDiff(inst, desc)]
+            else [Update(inst, desc)]
+        | Some inst, Some desc ->
+            // If behavior changed, unmount old instance and mount new instance
+            [ Unmount inst; Mount desc ]
 
     let diffChildren (instances: ElementInstance seq) (descriptions: Element seq) =
         // Do a full outer join to...
@@ -279,6 +329,7 @@ module UITree =
         instance.children <-
             instance.behavior.render (elementInfo invalidate instance)
             |> diffChildren instance.children
+            |> Seq.collect id
             |> Seq.choose handleDiff
             |> List.ofSeq
 
@@ -345,8 +396,8 @@ module CustomElementSample =
                 Border.Background @= SolidColorBrush Color.Cyan
                 Border.Child @=
                     if state.isOn
-                    then Border.border [ Border.Background @= SolidColorBrush Color.Green ]
-                    else Border.border [ Border.Background @= SolidColorBrush Color.IndianRed; UIElement.Height @= 40.0 ]
+                    then TextBlock.textBlock [ TextBlock.Text @= "Hello World!\r\nWe can go MULTILINE, too :)" ]
+                    else Border.border [ Border.Background @= SolidColorBrush Color.IndianRed; UIElement.Height @= 80.0 ]
             ]
         ]
 
@@ -365,8 +416,8 @@ module UISample =
     let sample() =
         Border.border [
             UIElement.HorizontalAlignment @= Alignment.End
-            UIElement.Width @= 100.0
-            UIElement.Height @= 100.0
+            UIElement.Width @= 400.0
+            UIElement.Height @= 400.0
             Border.Background @= SolidColorBrush Color.Red
             Border.Child @= CustomElementSample.customElementSample [
                 UIElement.Margin @= Thickness.createUniform 4.0

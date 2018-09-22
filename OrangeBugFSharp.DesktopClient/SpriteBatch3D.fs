@@ -14,8 +14,6 @@ type DrawSpriteCommand =
 
 module SpriteBatch3D =
 
-    let quadIndices = [| 0; 1; 2; 2; 1; 3 |]
-
     let quadVertices = [|
         VertexPositionNormalTexture(Vector3.Zero, Vector3.Backward, Vector2.UnitY) // bottom left
         VertexPositionNormalTexture(Vector3.UnitY, Vector3.Backward, Vector2.Zero) // top left
@@ -46,7 +44,7 @@ module SpriteBatch3D =
                 graphicsDevice.DrawUserIndexedPrimitives(
                     PrimitiveType.TriangleList,
                     quadVertices, 0, 4,
-                    quadIndices, 0, 2
+                    Quad.indices, 0, 2
                 )
         
         commands |> Seq.iter (fun (DrawSprite (s, m)) -> drawSprite s m)

@@ -13,6 +13,91 @@
 
 #---------------------------------- Content ---------------------------------#
 
+#begin ../Assets/Fonts/Arial.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:../Assets/Fonts/Arial.spritefont
+
+#begin ../Assets/Sounds/BalloonColor.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/BalloonColor.mp3
+
+#begin ../Assets/Sounds/BalloonPop.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/BalloonPop.mp3
+
+#begin ../Assets/Sounds/BoxMove.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/BoxMove.mp3
+
+#begin ../Assets/Sounds/ButtonPress.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/ButtonPress.mp3
+
+#begin ../Assets/Sounds/ButtonRelease.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/ButtonRelease.mp3
+
+#begin ../Assets/Sounds/CoinCollect.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/CoinCollect.mp3
+
+#begin ../Assets/Sounds/GateClose.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/GateClose.mp3
+
+#begin ../Assets/Sounds/GateOpen.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/GateOpen.mp3
+
+#begin ../Assets/Sounds/GenericClick.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/GenericClick.mp3
+
+#begin ../Assets/Sounds/GenericDing.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/GenericDing.mp3
+
+#begin ../Assets/Sounds/PistonExtend.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/PistonExtend.mp3
+
+#begin ../Assets/Sounds/PistonRetract.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/PistonRetract.mp3
+
+#begin ../Assets/Sounds/Teleport.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:../Assets/Sounds/Teleport.mp3
+
 #begin ../Assets/Sprites/BalloonBlue.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -324,82 +409,4 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:../Assets/Sprites/Wall.png
-
-#begin ../Assets/Sounds/BalloonColor.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/BalloonColor.mp3
-
-#begin ../Assets/Sounds/BalloonPop.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/BalloonPop.mp3
-
-#begin ../Assets/Sounds/BoxMove.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/BoxMove.mp3
-
-#begin ../Assets/Sounds/ButtonPress.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/ButtonPress.mp3
-
-#begin ../Assets/Sounds/ButtonRelease.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/ButtonRelease.mp3
-
-#begin ../Assets/Sounds/CoinCollect.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/CoinCollect.mp3
-
-#begin ../Assets/Sounds/GateClose.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/GateClose.mp3
-
-#begin ../Assets/Sounds/GateOpen.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/GateOpen.mp3
-
-#begin ../Assets/Sounds/GenericClick.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/GenericClick.mp3
-
-#begin ../Assets/Sounds/GenericDing.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/GenericDing.mp3
-
-#begin ../Assets/Sounds/PistonExtend.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/PistonExtend.mp3
-
-#begin ../Assets/Sounds/PistonRetract.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/PistonRetract.mp3
-
-#begin ../Assets/Sounds/Teleport.mp3
-/importer:Mp3Importer
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:../Assets/Sounds/Teleport.mp3
 
