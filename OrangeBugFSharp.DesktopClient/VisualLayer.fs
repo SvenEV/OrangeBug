@@ -43,6 +43,11 @@ module Visual =
         clipToBounds = true
     }
 
+// TODO: In the future we might want to implement a composition approach to help with UI performance.
+// That is, rasterize certain subtrees of the UI individually and compose them together instead of
+// rendering every UI element in every frame. Interesting resources:
+// https://developers.google.com/web/updates/2018/09/inside-browser-part3#compositing
+// https://msdn.microsoft.com/en-us/magazine/mt590968.aspx
 module VisualLayer =
     let flipY viewportHeight =
         Matrix.CreateScale(1.0f, -1.0f, 1.0f) *
