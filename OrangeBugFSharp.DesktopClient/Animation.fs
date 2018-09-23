@@ -1,7 +1,6 @@
 namespace OrangeBug.DesktopClient
 
 open OrangeBug
-open Microsoft.Xna.Framework
 
 type 'a Animation = {
     source: 'a
@@ -34,7 +33,7 @@ module Animation =
         interpolate animation.source animation.target progress
 
     let evaluateFloat = evaluate lerp
-    let evaluateVector2 = evaluate (fun a b t -> Vector2.Lerp(a, b, t))
-    let evaluateVector3 = evaluate (fun a b t -> Vector3.Lerp(a, b, t))
-    let evaluateVector4 = evaluate (fun a b t -> Vector4.Lerp(a, b, t))
-    let evaluateMatrix = evaluate (fun a b t -> Matrix.Lerp(a, b, t))
+    let evaluateVector2 = evaluate (fun a b t -> XnaVector2.Lerp(a, b, t))
+    let evaluateVector3 = evaluate (fun a b t -> XnaVector3.Lerp(a, b, t))
+    let evaluateVector4 = evaluate (fun a b t -> XnaVector4.Lerp(a, b, t))
+    let evaluateMatrix = evaluate (fun a b t -> XnaMatrix.Lerp(a, b, t))

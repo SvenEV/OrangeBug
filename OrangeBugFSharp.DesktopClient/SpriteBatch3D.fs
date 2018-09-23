@@ -1,24 +1,23 @@
 namespace OrangeBug.DesktopClient
 
 open Microsoft.Xna.Framework.Graphics
-open Microsoft.Xna.Framework
 
 type Sprite = {
     texture: Texture2D
-    anchorPoint: Vector2
-    size: Vector2
+    anchorPoint: XnaVector2
+    size: XnaVector2
 }
 
 type DrawSpriteCommand =
-    | DrawSprite of Sprite * Matrix
+    | DrawSprite of Sprite * XnaMatrix
 
 module SpriteBatch3D =
 
     let quadVertices = [|
-        VertexPositionNormalTexture(Vector3.Zero, Vector3.Backward, Vector2.UnitY) // bottom left
-        VertexPositionNormalTexture(Vector3.UnitY, Vector3.Backward, Vector2.Zero) // top left
-        VertexPositionNormalTexture(Vector3.UnitX, Vector3.Backward, Vector2.One) // bottom right
-        VertexPositionNormalTexture(Vector3.One, Vector3.Backward, Vector2.UnitX) // top right
+        VertexPositionNormalTexture(XnaVector3.Zero, XnaVector3.Backward, XnaVector2.UnitY) // bottom left
+        VertexPositionNormalTexture(XnaVector3.UnitY, XnaVector3.Backward, XnaVector2.Zero) // top left
+        VertexPositionNormalTexture(XnaVector3.UnitX, XnaVector3.Backward, XnaVector2.One) // bottom right
+        VertexPositionNormalTexture(XnaVector3.One, XnaVector3.Backward, XnaVector2.UnitX) // top right
     |]
 
     let draw graphicsDevice viewMatrix projectionMatrix commands  =
@@ -27,10 +26,10 @@ module SpriteBatch3D =
         graphicsDevice.RasterizerState <- RasterizerState.CullNone
 
         let drawSprite sprite worldMatrix =
-            let normalizedAnchor = Vector2(sprite.anchorPoint.X / float32 sprite.texture.Width, 1.0f - sprite.anchorPoint.Y / float32 sprite.texture.Height)
+            let normalizedAnchor = XnaVector2(sprite.anchorPoint.X / float32 sprite.texture.Width, 1.0f - sprite.anchorPoint.Y / float32 sprite.texture.Height)
             let localMatrix =
-                Matrix.CreateScale(sprite.size.X, sprite.size.Y, 0.0f) *
-                Matrix.CreateTranslation(
+                XnaMatrix.CreateScale(sprite.size.X, sprite.size.Y, 0.0f) *
+                XnaMatrix.CreateTranslation(
                     -(lerp 0.0f sprite.size.X normalizedAnchor.X),
                     -(lerp 0.0f sprite.size.Y normalizedAnchor.Y),
                     0.0f

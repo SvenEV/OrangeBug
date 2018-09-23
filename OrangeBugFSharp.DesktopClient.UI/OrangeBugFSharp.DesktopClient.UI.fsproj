@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Extensions.fs" />
+    <Compile Include="TextRendering.fs" />
+    <Compile Include="VisualLayer.fs" />
+    <Compile Include="PropertySystem.fs" />
+    <Compile Include="UI.fs" />
+    <Compile Include="UIElement.fs" />
+    <Compile Include="UISamples.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Layman" Version="0.1.0-CI-20180923-131359" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL.Core" Version="3.7.0.7" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta0005" />
+    <PackageReference Include="System.Collections.Immutable" Version="1.5.0" />
+  </ItemGroup>
+
+</Project>

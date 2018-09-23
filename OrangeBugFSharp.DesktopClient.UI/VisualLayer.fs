@@ -14,7 +14,6 @@ type VisualBrush =
     | SolidColorBrush of Color
     | TextureBrush of Texture2D
     | TextureNineGridBrush of Texture2D // * more info... TODO
-    | TextBrush of string * SpriteFont
 
 type Visual = {
     offset: Vector2
@@ -124,13 +123,6 @@ module VisualLayer =
             effect.TextureEnabled <- true
             effect.DiffuseColor <- Color.White.ToVector3()
             drawQuad (Quad.create Vector2.Zero visual.size Color.White)
-            effect.TextureEnabled <- false
-        | TextBrush(s, font) ->
-            effect.Texture <- font.Texture
-            effect.TextureEnabled <- true
-            effect.DiffuseColor <- Color.Black.ToVector3()
-            let quads = TextRendering.render s font
-            quads |> Seq.iter drawQuad
             effect.TextureEnabled <- false
         
         { state with matrixStack = worldMatrix :: state.matrixStack }

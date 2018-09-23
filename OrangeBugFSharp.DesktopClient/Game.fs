@@ -17,7 +17,7 @@ type Game() as g =
 
     let getSprite name =
         let texture = g.Content.Load<Texture2D> name
-        { texture = texture; size = Vector2.One; anchorPoint = 100.0f * Vector2.One }
+        { texture = texture; size = XnaVector2.One; anchorPoint = 100.0f * XnaVector2.One }
 
     override g.Initialize() =
         session <- Some (GameSession.create "mainSession" getSprite)
@@ -54,7 +54,7 @@ type Game() as g =
         
     override g.Draw gameTime =
         base.Draw gameTime
-        g.GraphicsDevice.Clear Color.Black
+        g.GraphicsDevice.Clear XnaColor.Black
         match session with
         | None -> ()
         | Some session -> GameSession.draw session g.GraphicsDevice

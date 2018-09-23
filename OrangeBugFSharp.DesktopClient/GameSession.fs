@@ -43,7 +43,7 @@ module GameSession =
         | _ -> ()
 
     let buildScene map getSprite =
-        let cameraPos = Vector3((map.size.x / 2 |> float32) - 0.5f, (map.size.y / 2 |> float32) - 0.5f, 10.0f)
+        let cameraPos = XnaVector3((map.size.x / 2 |> float32) - 0.5f, (map.size.y / 2 |> float32) - 0.5f, 10.0f)
         let camera = CameraComponent.createNode "MainCamera" 10.0f cameraPos
 
         let tiles =

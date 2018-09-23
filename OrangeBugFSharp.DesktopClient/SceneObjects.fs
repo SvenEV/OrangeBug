@@ -1,31 +1,30 @@
 namespace OrangeBug.DesktopClient
 
-open Microsoft.Xna.Framework
-open Microsoft.Xna.Framework.Graphics
 open Layman
 open OrangeBug
 open OrangeBug.Game
 open OrangeBug.DesktopClient
 open OrangeBug.DesktopClient.LibUI
+open Microsoft.Xna.Framework.Graphics
 
 type TransformComponent = {
-    mutable localMatrix: Matrix
-    mutable worldMatrix: Matrix
+    mutable localMatrix: XnaMatrix
+    mutable worldMatrix: XnaMatrix
 }
 
 module TransformComponent =
-    let create() = { localMatrix = Matrix.Identity; worldMatrix = Matrix.Identity }
+    let create() = { localMatrix = XnaMatrix.Identity; worldMatrix = XnaMatrix.Identity }
 
     let createAt translation = {
-        localMatrix = Matrix.CreateTranslation(translation)
-        worldMatrix = Matrix.Identity
+        localMatrix = XnaMatrix.CreateTranslation(translation)
+        worldMatrix = XnaMatrix.Identity
     }
 
     let updateWorldMatrices scene =
         let update parentWorldMatrix _ transform =
             transform.worldMatrix <- transform.localMatrix * parentWorldMatrix
             transform.worldMatrix
-        scene |> SceneGraph.iterComponents update Matrix.Identity
+        scene |> SceneGraph.iterComponents update XnaMatrix.Identity
 
 
 type SpriteRendererComponent = {
@@ -62,7 +61,7 @@ module TileComponent =
         {
             id = nodeId p
             components = [
-                TransformComponent.createAt (Vector3(float32 p.x, float32 p.y, 0.0f))
+                TransformComponent.createAt (XnaVector3(float32 p.x, float32 p.y, 0.0f))
                 SpriteRendererComponent.create()
                 { position = p; tile = tile }
             ]
@@ -80,15 +79,15 @@ module TileComponent =
             | Some renderer, Some transform ->
                 renderer.sprite <- "Sprites/" + Rendering.tileSpriteKey comp.tile |> getSprite |> Some
                 transform.localMatrix <-
-                    Matrix.CreateRotationZ (orientation comp.tile).AsRadians *
-                    Matrix.CreateTranslation (comp.position.AsVector3 0.0f)
+                    XnaMatrix.CreateRotationZ (orientation comp.tile).AsRadians *
+                    XnaMatrix.CreateTranslation (comp.position.AsVector3 0.0f)
             | _ -> ()
         scene |> SceneGraph.iterComponents updateNode ()
 
 
 type EntityComponent = {
     mutable entity: Entity
-    mutable positionAnimation: Vector3 Animation
+    mutable positionAnimation: XnaVector3 Animation
 }
 
 module EntityComponent =
@@ -117,8 +116,8 @@ module EntityComponent =
             | Some transform ->
                 let translation = comp.positionAnimation |> Animation.evaluateVector3 Ease.sineOut simTime
                 transform.localMatrix <-
-                    Matrix.CreateRotationZ (orientation comp.entity).AsRadians *
-                    Matrix.CreateTranslation translation
+                    XnaMatrix.CreateRotationZ (orientation comp.entity).AsRadians *
+                    XnaMatrix.CreateTranslation translation
 
             match node |> SceneNode.tryGetComponent<SpriteRendererComponent> with
             | None -> ()
@@ -131,9 +130,9 @@ module EntityComponent =
 
 type CameraComponent = {
     /// World-to-view matrix
-    mutable viewMatrix: Matrix
+    mutable viewMatrix: XnaMatrix
     /// View-to-projection matrix
-    mutable projectionMatrix: Matrix
+    mutable projectionMatrix: XnaMatrix
     /// Size of the vertical viewing volume (horizontal size calculated accordingly)
     mutable size: float32
 }
@@ -157,7 +156,7 @@ module CameraComponent =
             id = id
             components = [
                 TransformComponent.createAt position
-                { size = size; viewMatrix = Matrix.Identity; projectionMatrix = Matrix.Identity; }
+                { size = size; viewMatrix = XnaMatrix.Identity; projectionMatrix = XnaMatrix.Identity; }
             ]
         }
     
@@ -166,8 +165,8 @@ module CameraComponent =
             match node |> SceneNode.tryGetComponent<TransformComponent> with
             | None -> ()
             | Some transform ->
-                camera.viewMatrix <- Matrix.Invert transform.worldMatrix
-                camera.projectionMatrix <- Matrix.CreateOrthographic(camera.size * aspectRatio, camera.size, -1000.0f, 1000.0f);
+                camera.viewMatrix <- XnaMatrix.Invert transform.worldMatrix
+                camera.projectionMatrix <- XnaMatrix.CreateOrthographic(camera.size * aspectRatio, camera.size, -1000.0f, 1000.0f);
         
         scene |> SceneGraph.iterComponents updateNode ()
 
@@ -187,10 +186,10 @@ module UIComponent =
         // Perform layout pass. If nothing changed, LayoutCaches let this terminate quickly.
         let root = comp.ui.root
         let layout = root.behavior.layout (elementInfo dummyInvalidate root)
-        let space = layvec2 (float viewport.Width) (float viewport.Height)
+        let space = SysVector2(float32 viewport.Width, float32 viewport.Height)
         let context = { parentCache = None; traceWriter = ignore }
         let _, measureData = Layout.measure space context layout
-        Layout.arrange (rect (layvec2 0.0 0.0) space) measureData context layout |> ignore
+        Layout.arrange (rect SysVector2.Zero space) measureData context layout |> ignore
 
     let updateUIs scene viewport =
         scene |> SceneGraph.iterComponents (fun _ _ -> updateUI viewport) ()
