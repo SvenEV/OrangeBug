@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open System.Collections.Immutable
 open System.Linq
+open System.Runtime.CompilerServices
 open Microsoft.Xna.Framework.Graphics
 
 type SysVector2 = System.Numerics.Vector2
@@ -25,19 +26,13 @@ module Mathf =
     let clamp (v: float32) min max = XnaMath.Clamp(v, min , max)
     let clamp01 v = clamp v 0.0f 1.0f
     let lerp (a: float32) b progress = XnaMath.Lerp(a, b, progress)
-    let min (a: float32) b = XnaMath.Min(a, b)
-    let max (a: float32) b = XnaMath.Max(a, b)
     let pi = XnaMath.Pi
     let pi'2 = XnaMath.PiOver2
     let pi'4 = XnaMath.PiOver4
-    let xvec2 x y = XnaVector2(x, y)
-    let xvec3 x y z = XnaVector3(x, y, z)
     let ifNaN fallback v = if Single.IsNaN v then fallback else v
 
 [<AutoOpen>]
 module Extensions =
-    open System.Runtime.CompilerServices
-
     let (|KeyValuePair|) (kvp: KeyValuePair<'key, 't>) = kvp.Key, kvp.Value
     
     [<Extension>]
