@@ -3,6 +3,7 @@
 open OrangeBug.DesktopClient
 open Layman
 open Layman.Layouts
+open Microsoft.Xna.Framework.Graphics
 
 [<AutoOpen>]
 module UIElement =
@@ -104,28 +105,72 @@ module Border =
 
 module TextBlock =
     let Text = PropertyKey.register "Text" "" AffectsMeasure
+    let FontFamily = PropertyKey.register "FontFamily" "Arial" AffectsMeasure
+    let FontSize = PropertyKey.register "FontSize" 12.0f AffectsMeasure
+    let FontStyle = PropertyKey.register "FontStyle" SixLabors.Fonts.FontStyle.Regular AffectsMeasure
+    let TextWrapping = PropertyKey.register "TextWrapping" TextWrapping.Wrap AffectsMeasure
+    let TextAlignment = PropertyKey.register "TextAlignment" TextAlignment.Left AffectsMeasure
+
+    type State = {
+        mutable texture: Texture2D option
+    } with interface IElementState
+
+    let createTextOptions props space = {
+        fontFamily = get props FontFamily
+        fontSize = get props FontSize
+        fontStyle = get props FontStyle
+        textWrapping = get props TextWrapping
+        textAlignment = get props TextAlignment
+        constraintSize = space
+    }
+
+    let propsChanged (elem: ElementInfo) (oldProps: PropertyBag) =
+        UIElement.defaultPropsChanged elem oldProps
+        (elem.state :?> State).texture <- None
 
     let layout (elem: ElementInfo) =
-        let size = TextRendering.measure (get elem.props Text)
-        standardLayout elem.props elem.layoutCache (fixedSize (SysVector2(size.X, size.Y)) zero)
+        // TODO: Hm, this is called in every frame to construct the "layout tree" even though layouting
+        // itself does not happen every frame due to caching. Could we solve this by passing child layouts as thunks?
+        let childLayout = function
+            | Measure(space, _) ->
+                (elem.state :?> State).texture <- None
+                let options = createTextOptions elem.props (space.AsXna())
+                let size = (TextRendering.measure (get elem.props Text) options).AsSys()
+                Measured (size, ObjTree.leaf size)
+            | Arrange(rect, Tree(:? SysVector2 as measuredSize, _), _) ->
+                Arranged rect
+        
+        standardLayout elem.props elem.layoutCache childLayout
+
 
     let draw (elem: ElementInfo) (context: VisualLayer.State) =
         let bounds = elem.layoutCache.relativeBounds
-        let tex = TextRendering.renderToTexture (get elem.props Text) (bounds.size.AsXna()) context.graphicsDevice
+        let state = elem.state :?> State
+
+        let texture =
+            match state.texture with
+            | Some tex -> tex
+            | None ->
+                let options = createTextOptions elem.props (bounds.size.AsXna())
+                let tex = TextRendering.renderToTexture (get elem.props Text) options context.graphicsDevice
+                state.texture <- Some tex
+                tex
 
         context
         |> VisualLayer.pushVisual {
             Visual.empty with
                 offset = bounds.offset.AsXna()
                 size = bounds.size.AsXna()
-                brush = TextureBrush tex 
+                brush = TextureBrush texture 
         }
         |> VisualLayer.pop
 
     let behavior = {
         defaultBehavior "TextBlock" with
+            mount = fun _ _ -> { texture = None } :> IElementState
             layout = layout
             draw = draw
+            propsChanged = propsChanged
     }
 
     let textBlock props = {

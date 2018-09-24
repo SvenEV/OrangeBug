@@ -4,6 +4,7 @@ open Layman
 open System.Threading
 open OrangeBug.DesktopClient
 open Microsoft.Xna.Framework.Input
+open SixLabors.Fonts
 
 module CustomElementSample =
     let IsInitiallyOn = PropertyKey.register "IsInitiallyOn" true NoLayoutEffect
@@ -44,7 +45,11 @@ module CustomElementSample =
                 Border.Background @= SolidColorBrush XnaColor.Cyan
                 Border.Child @=
                     if state.isOn
-                    then TextBlock.textBlock [ TextBlock.Text @= "Hello World!\r\nWe can go MULTILINE, too :)" ]
+                    then TextBlock.textBlock [
+                        TextBlock.Text @= "Hello World!\r\nWe can go MULTILINE, too :)\r\nLet's see what happens with very long lines like this one which has many words."
+                        TextBlock.TextAlignment @= Center
+                        TextBlock.FontSize @= 20.0f
+                        TextBlock.FontStyle @= FontStyle.Bold ]
                     else Border.border [ Border.Background @= SolidColorBrush XnaColor.IndianRed; UIElement.Height @= 80.0f ]
             ]
         ]
