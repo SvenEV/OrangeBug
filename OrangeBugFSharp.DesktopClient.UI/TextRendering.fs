@@ -57,6 +57,7 @@ module TextRendering =
             )
 
         // TODO: The "+2" hack won't work if constraintSize.X < 'width required for text'
+        // (hitting this issue here: https://github.com/SixLabors/ImageSharp/issues/688)
         let img = new Image<Rgba32>(int <| ceil options.constraintSize.X + 2.0f, int <| ceil options.constraintSize.Y)
         let brush = Brushes.Solid Rgba32.Black
         img.Mutate (fun ctx -> ctx.DrawText(config, s, font, brush, PointF.Empty) |> ignore)
