@@ -1,7 +1,7 @@
 namespace OrangeBug.DesktopClient
 
-open System.IO
 open SixLabors.ImageSharp
+open SixLabors.ImageSharp.Advanced
 open SixLabors.ImageSharp.PixelFormats
 open SixLabors.ImageSharp.Processing
 open SixLabors.Fonts
@@ -58,11 +58,10 @@ module TextRendering =
 
         // TODO: The "+2" hack won't work if constraintSize.X < 'width required for text'
         // (hitting this issue here: https://github.com/SixLabors/ImageSharp/issues/688)
-        let img = new Image<Rgba32>(int <| ceil options.constraintSize.X + 2.0f, int <| ceil options.constraintSize.Y)
-        let brush = Brushes.Solid Rgba32.Black
+        use img = new Image<Bgra32>(int <| ceil options.constraintSize.X + 2.0f, int <| ceil options.constraintSize.Y)
+        let brush = Brushes.Solid (Rgba32.Black.ToBgra32())
         img.Mutate (fun ctx -> ctx.DrawText(config, s, font, brush, PointF.Empty) |> ignore)
-        use stream = new MemoryStream()
-        // TODO: For performance, don't do PNG-encoding - better use Texture2D.SetData(...)
-        img.SaveAsPng stream
-        stream.Seek(0L, SeekOrigin.Begin) |> ignore
-        Texture2D.FromStream(graphicsDevice, stream)
+
+        let texture = new Texture2D(graphicsDevice, img.Width, img.Height)
+        texture.SetData(img.GetPixelSpan().ToArray())
+        texture
